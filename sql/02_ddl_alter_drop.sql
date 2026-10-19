@@ -11,7 +11,7 @@
 -- Scenario: Compliance mandates logging customer middle name and nationality.
 -- ----------------------------------------------------------------------------
 ALTER TABLE customers ADD COLUMN middle_name VARCHAR(50);
-ALTER TABLE customers ADD COLUMN nationality VARCHAR(50) DEFAULT 'US';
+ALTER TABLE customers ADD COLUMN nationality VARCHAR(50) DEFAULT 'Indian';
 
 -- Add an audit column to transactions to flag high-value or suspicious actions
 ALTER TABLE transactions ADD COLUMN is_flagged INTEGER DEFAULT 0;
@@ -39,7 +39,7 @@ ALTER TABLE transactions DROP COLUMN is_flagged;
 -- ----------------------------------------------------------------------------
 
 -- [PostgreSQL / Oracle / MySQL Syntax]:
--- Add an additional check constraint to ensure cash capacity is at least $1,000
+-- Add an additional check constraint to ensure cash capacity is at least ₹1,000
 -- ALTER TABLE atm_machines 
 --     ADD CONSTRAINT chk_min_capacity CHECK (cash_capacity >= 1000.00);
 

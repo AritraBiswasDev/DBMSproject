@@ -15,6 +15,11 @@ import sqlite3
 import os
 import sys
 
+# Configure UTF-8 encoding for console output on Windows
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL_DIR = os.path.join(BASE_DIR, "sql")
 DB_FILE = os.path.join(BASE_DIR, "atm_system.db")
@@ -56,7 +61,7 @@ def test_constraints(conn):
     try:
         cursor.execute("""
             INSERT INTO customers (customer_id, first_name, last_name, email, phone_number, date_of_birth, street_address, city, state, postal_code)
-            VALUES (888, 'Duplicate', 'Test', 'john.doe@email.com', '555-8888', '1990-01-01', '1 St', 'NY', 'NY', '10001');
+            VALUES (888, 'Duplicate', 'Test', 'aarav.sharma@email.com', '98888-88888', '1990-01-01', '1 MG Road', 'Mumbai', 'MH', '400001');
         """)
         print("❌ FAIL: UNIQUE constraint (email) was not enforced!")
     except sqlite3.IntegrityError as e:
@@ -76,7 +81,7 @@ def test_constraints(conn):
     try:
         cursor.execute("""
             INSERT INTO customers (customer_id, first_name, last_name, email, phone_number, date_of_birth, street_address, city, state, postal_code)
-            VALUES (890, NULL, 'NoName', 'null.test@email.com', '555-8901', '1990-01-01', '1 St', 'NY', 'NY', '10001');
+            VALUES (890, NULL, 'Kumar', 'null.test@email.com', '98901-00000', '1990-01-01', '1 MG Road', 'Mumbai', 'MH', '400001');
         """)
         print("❌ FAIL: NOT NULL constraint was not enforced!")
     except sqlite3.IntegrityError as e:
@@ -102,7 +107,7 @@ def run_sample_queries(conn):
         FROM accounts GROUP BY account_type;
     """)
     for row in cursor.fetchall():
-        print(f"Type: {row[0]:<9} | Accounts: {row[1]} | Total Balance: ${row[2]:,.2f} | Avg: ${row[3]:,.2f}")
+        print(f"Type: {row[0]:<9} | Accounts: {row[1]} | Total Balance: ₹{row[2]:,.2f} | Avg: ₹{row[3]:,.2f}")
 
     print("\n--- Transaction Volume with HAVING Filter ---")
     cursor.execute("""
@@ -113,7 +118,7 @@ def run_sample_queries(conn):
         HAVING COUNT(*) >= 2;
     """)
     for row in cursor.fetchall():
-        print(f"Account ID: {row[0]} | Total Success Trans: {row[1]} | Volume: ${row[2]:,.2f}")
+        print(f"Account ID: {row[0]} | Total Success Trans: {row[1]} | Volume: ₹{row[2]:,.2f}")
 
 def main():
     if os.path.exists(DB_FILE):

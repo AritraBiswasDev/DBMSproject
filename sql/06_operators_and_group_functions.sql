@@ -38,7 +38,7 @@ WHERE (account_type = 'CHECKING' AND balance > 2000.00)
   AND NOT (status = 'FROZEN');
 
 -- Query 1.3: Set (IN) and Range (BETWEEN ... AND) Operators
--- Find transactions between $200 and $1000 for withdrawals and transfers
+-- Find transactions between ₹200 and ₹1000 for withdrawals and transfers
 SELECT 
     transaction_id,
     account_id,
@@ -51,7 +51,7 @@ WHERE transaction_type IN ('WITHDRAWAL', 'TRANSFER')
   AND amount BETWEEN 200.00 AND 1000.00;
 
 -- Query 1.4: Pattern Matching (LIKE with % and _) Operator
--- Find customers whose city begins with 'New' or phone has specific prefix
+-- Find customers whose city begins with 'Mum' or email has specific domain
 SELECT 
     customer_id,
     first_name || ' ' || last_name AS full_name,
@@ -59,7 +59,7 @@ SELECT
     phone_number,
     email
 FROM customers
-WHERE city LIKE 'New%'
+WHERE city LIKE 'Mum%'
    OR email LIKE '%.org'
    OR email LIKE '%@email.com';
 
@@ -124,7 +124,7 @@ GROUP BY status;
 -- ----------------------------------------------------------------------------
 
 -- Query 3.1: High-Volume Accounts Filtered via HAVING
--- Lists accounts that have initiated more than 1 transaction and moved > $500 total
+-- Lists accounts that have initiated more than 1 transaction and moved > ₹500 total
 SELECT 
     account_id,
     COUNT(transaction_id) AS total_transactions,
@@ -137,7 +137,7 @@ HAVING COUNT(transaction_id) >= 2
    AND SUM(amount) > 500.00
 ORDER BY total_transacted_amount DESC;
 
--- Query 3.2: ATM Locations with Cash Turnover exceeding $500
+-- Query 3.2: ATM Locations with Cash Turnover exceeding ₹500
 SELECT 
     atm_id,
     COUNT(*) AS transaction_count,

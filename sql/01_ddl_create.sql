@@ -54,7 +54,7 @@ CREATE TABLE accounts (
                                        CHECK (balance >= 0.00),
     minimum_balance     DECIMAL(15, 2) NOT NULL DEFAULT 50.00
                                        CHECK (minimum_balance >= 0.00),
-    currency            VARCHAR(3)     NOT NULL DEFAULT 'USD',
+    currency            VARCHAR(3)     NOT NULL DEFAULT 'INR',
     status              VARCHAR(15)    NOT NULL DEFAULT 'ACTIVE'
                                        CHECK (status IN ('ACTIVE', 'DORMANT', 'FROZEN', 'CLOSED')),
     opened_date         DATE           NOT NULL DEFAULT CURRENT_DATE,

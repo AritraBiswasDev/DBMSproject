@@ -11,13 +11,13 @@
 -- ----------------------------------------------------------------------------
 
 -- Operation 1.1: Deposit Simulation - Incrementing Account Balance
--- Scenario: Customer 1 deposits $500.00 into Checking Account (account_id = 101).
+-- Scenario: Customer 1 deposits ₹500.00 into Checking Account (account_id = 101).
 UPDATE accounts
 SET balance = balance + 500.00
 WHERE account_id = 101;
 
 -- Operation 1.2: Withdrawal Simulation - Decrementing Account Balance
--- Scenario: Customer 1 withdraws $200.00, verified against check constraint.
+-- Scenario: Customer 1 withdraws ₹200.00, verified against check constraint.
 UPDATE accounts
 SET balance = balance - 200.00
 WHERE account_id = 101 AND balance >= 200.00;
@@ -39,13 +39,13 @@ WHERE card_id = 510;
 -- Operation 1.5: Customer Information Modification
 -- Scenario: Customer 2 moves to a new residence and updates contact information.
 UPDATE customers
-SET street_address = '789 Atlantic Avenue',
-    city = 'Brooklyn',
-    phone_number = '555-0999'
+SET street_address = '789 Marine Drive, Nariman Point',
+    city = 'Mumbai',
+    phone_number = '98201-99999'
 WHERE customer_id = 2;
 
 -- Operation 1.6: ATM Cash Replenishment
--- Scenario: Armored carrier services ATM-DEN-01 (atm_id = 7) and replenishes cash.
+-- Scenario: Armored carrier services ATM-PUN-01 (atm_id = 7) and replenishes cash.
 UPDATE atm_machines
 SET current_cash_level = 40000.00,
     status = 'ONLINE',
@@ -68,7 +68,7 @@ WHERE account_type = 'SAVINGS';
 
 -- Create a temporary test customer and unlinked account to demonstrate clean deletion
 INSERT INTO customers (customer_id, first_name, last_name, email, phone_number, date_of_birth, street_address, city, state, postal_code, kyc_status)
-VALUES (999, 'Test', 'Ghost', 'ghost.test@email.com', '555-9999', '1990-01-01', '000 Void Ave', 'Nowhere', 'NY', '00000', 'PENDING');
+VALUES (999, 'Test', 'Kumar', 'test.kumar@email.com', '98999-99999', '1990-01-01', '000 MG Road', 'Mumbai', 'MH', '400001', 'PENDING');
 
 INSERT INTO accounts (account_id, customer_id, account_number, account_type, balance, minimum_balance)
 VALUES (999, 999, 'ACC-VOID-999', 'CHECKING', 0.00, 0.00);
