@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metro Bank ATM — Interactive Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --accent: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --bezel-color: #334155;
+            --screen-bg: #064e3b;
+            --screen-text: #6ee7b7;
+            --screen-accent: #a7f3d0;
+            --keypad-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Top Header */
+        header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-icon {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: #f8fafc;
+        }
+
+        .brand-subtitle {
+            font-size: 0.75rem;
+            color: #38bdf8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.35rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-btn:hover {
+            color: #fff;
+        }
+
+        .nav-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(2, 132, 199, 0.4);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            font-weight: 500;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.2); }
+        }
+
+        /* Main Container */
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        /* ==========================================================================
+           ATM TERMINAL HARDWARE CASING
+           ========================================================================== */
+        .atm-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 2.5rem;
+            align-items: start;
+        }
+
+        .atm-machine {
+            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+            border: 2px solid #475569;
+            position: relative;
+        }
+
+        .atm-header-plate {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #334155;
+        }
+
+        .atm-id-tag {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            letter-spacing: 0.1em;
+        }
+
+        /* ATM Screen Housing */
+        .screen-bezel {
+            background: #020617;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 4px solid #1e293b;
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.8);
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .atm-screen {
+            background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%);
+            border-radius: 8px;
+            min-height: 380px;
+            padding: 1.5rem;
+            color: var(--screen-text);
+            font-family: 'Share Tech Mono', monospace;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(110, 231, 183, 0.3);
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Scanline effect */
+        .atm-screen::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        .screen-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed rgba(110, 231, 183, 0.3);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .screen-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            z-index: 5;
+        }
+
+        .screen-title {
+            font-size: 1.4rem;
+            color: #a7f3d0;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 10px rgba(167, 243, 208, 0.5);
+        }
+
+        .screen-msg {
+            font-size: 0.95rem;
+            color: var(--screen-text);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            max-width: 90%;
+        }
+
+        /* PIN Display Dots */
+        .pin-dots-container {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .pin-dot {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--screen-text);
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .pin-dot.filled {
+            background: var(--screen-accent);
+            box-shadow: 0 0 12px var(--screen-accent);
+            transform: scale(1.1);
+        }
+
+        /* ATM Services Menu Layout */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .screen-btn {
+            background: rgba(6, 78, 59, 0.6);
+            border: 1px solid var(--screen-text);
+            color: var(--screen-accent);
+            padding: 0.85rem 1rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-align: left;
+        }
+
+        .screen-btn:hover {
+            background: rgba(16, 185, 129, 0.25);
+            border-color: #fff;
+            color: #fff;
+            box-shadow: 0 0 12px rgba(167, 243, 208, 0.4);
+            transform: translateX(2px);
+        }
+
+        /* Hardware Slots Section */
+        .hardware-slots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .slot-box {
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .slot-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-slot-aperture {
+            height: 12px;
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9);
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .card-slot-aperture.active {
+            border-color: #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6), inset 0 2px 4px #000;
+        }
+
+        .cash-dispenser-aperture {
+            height: 24px;
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cash-dispenser-aperture.dispensing {
+            border-color: #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.7);
+        }
+
+        .dispensed-cash {
+            position: absolute;
+            bottom: -30px;
+            left: 20%;
+            right: 20%;
+            height: 28px;
+            background: linear-gradient(180deg, #84cc16, #4d7c0f);
+            border-radius: 4px;
+            border: 1px solid #a3e635;
+            color: #fff;
+            font-weight: 800;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        .dispensed-cash.show {
+            transform: translateY(-24px);
+        }
+
+        /* ATM Keypad Console */
+        .keypad-console {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 2px solid #334155;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .keypad-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+
+        .key-btn {
+            background: linear-gradient(180deg, #475569 0%, #334155 100%);
+            border: 1px solid #64748b;
+            border-bottom: 4px solid #1e293b;
+            border-radius: 10px;
+            color: #f8fafc;
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding: 1rem 0;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.05s ease;
+            user-select: none;
+        }
+
+        .key-btn:active {
+            transform: translateY(3px);
+            border-bottom: 1px solid #1e293b;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .key-btn.btn-cancel {
+            background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+            border-color: #f87171;
+            border-bottom-color: #7f1d1d;
+            font-size: 0.9rem;
+        }
+
+        .key-btn.btn-clear {
+            background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+            border-color: #fbbf24;
+            border-bottom-color: #78350f;
+            font-size: 0.9rem;
+        }
+
+        .key-btn.btn-enter {
+            background: linear-gradient(180deg, #10b981 0%, #047857 100%);
+            border-color: #34d399;
+            border-bottom-color: #064e3b;
+            font-size: 0.9rem;
+        }
+
+        /* Right Side: Quick Cards Selection Drawer */
+        .cards-drawer {
+            background: var(--panel-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .drawer-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .drawer-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+        }
+
+        .card-chips-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        /* Custom Scrollbar */
+        .card-chips-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .card-chips-list::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        .card-chip {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-chip:hover {
+            border-color: #38bdf8;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-chip.selected {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #064e3b, #022c22);
+        }
+
+        .card-chip-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .chip-holder {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #f8fafc;
+        }
+
+        .chip-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-active { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .badge-blocked { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge-expired { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+        .chip-number {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+
+        .chip-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .chip-balance {
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        /* ==========================================================================
+           RECEIPT MODAL (Thermal Paper Style)
+           ========================================================================== */
+        .receipt-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .receipt-overlay.show {
+            display: flex;
+        }
+
+        .thermal-receipt {
+            background: #fefce8;
+            color: #1c1917;
+            font-family: 'Courier New', Courier, monospace;
+            width: 340px;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+            position: relative;
+            animation: printSlip 0.4s ease-out;
+            line-height: 1.4;
+        }
+
+        @keyframes printSlip {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px dashed #a8a29e;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .receipt-bank {
+            font-size: 1.1rem;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+        }
+
+        .receipt-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .receipt-total {
+            border-top: 2px dashed #a8a29e;
+            border-bottom: 2px dashed #a8a29e;
+            padding: 0.75rem 0;
+            margin: 1rem 0;
+            font-size: 1rem;
+            font-weight: 900;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .receipt-footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #78716c;
+            margin-top: 1rem;
+        }
+
+        .receipt-close-btn {
+            background: #1c1917;
+            color: #fff;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            font-weight: 700;
+            margin-top: 1.25rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* ==========================================================================
+           BANK ADMIN & ANALYTICS DASHBOARD
+           ========================================================================== */
+        .admin-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .analytics-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #f8fafc;
+        }
+
+        .metric-sub {
+            font-size: 0.8rem;
+            color: #38bdf8;
+            margin-top: 0.25rem;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .panel-box {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .panel-header {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid #334155;
+            font-weight: 600;
+        }
+
+        .data-table td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-action-small {
+            background: rgba(2, 132, 199, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(2, 132, 199, 0.4);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action-small:hover {
+            background: #0284c7;
+            color: #fff;
+        }
+
+        /* ==========================================================================
+           LIVE SQL QUERY INSPECTOR (FOOTER DRAWER)
+           ========================================================================== */
+        .sql-inspector {
+            background: #020617;
+            border-top: 2px solid #1e293b;
+            padding: 1rem 2rem;
+            position: sticky;
+            bottom: 0;
+            z-index: 40;
+            box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.6);
+        }
+
+        .sql-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sql-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sql-log-stream {
+            margin-top: 0.75rem;
+            max-height: 140px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .sql-entry {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            border-left: 3px solid #10b981;
+            color: #e2e8f0;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .sql-time {
+            color: #64748b;
+            flex-shrink: 0;
+        }
+
+        .sql-query {
+            color: #a7f3d0;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 1024px) {
+            .atm-wrapper {
+                grid-template-columns: 1fr;
+            }
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+            .analytics-cards {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon">🏧</div>
+            <div>
+                <div class="brand-title">METRO BANK OF INDIA</div>
+                <div class="brand-subtitle">Interactive ATM & Relational Banking Console</div>
+            </div>
+        </div>
+
+        <nav class="nav-tabs">
+            <button class="nav-btn active" onclick="switchView('atm')">
+                <span>🏧</span> ATM Terminal
+            </button>
+            <button class="nav-btn" onclick="switchView('admin')">
+                <span>🏛️</span> Bank Admin & Analytics
+            </button>
+        </nav>
+
+        <div class="status-badge">
+            <div class="pulse-dot"></div>
+            <span>SQLite Connected: atm_system.db</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main>
+        
+        <!-- ================================================================== -->
+        <!-- VIEW 1: ATM TERMINAL                                              -->
+        <!-- ================================================================== -->
+        <section id="atm-view" class="view-section active">
+            <div class="atm-wrapper">
+                
+                <!-- Physical ATM Machine Enclosure -->
+                <div class="atm-machine">
+                    <div class="atm-header-plate">
+                        <div style="font-weight: 800; font-size: 1.1rem; color: #f8fafc; letter-spacing: 0.05em;">
+                            METRO BANK EXPRESS ATM
+                        </div>
+                        <div class="atm-id-tag">TERMINAL: ATM-MUM-01 (NARIMAN POINT)</div>
+                    </div>
+
+                    <!-- ATM Screen Housing -->
+                    <div class="screen-bezel">
+                        <div class="atm-screen" id="atmScreen">
+                            
+                            <div class="screen-top">
+                                <div>METRO BANK 24/7 NETWORK</div>
+                                <div id="liveClock">--:--:--</div>
+                            </div>
+
+                            <!-- Screen State 1: Welcome / Idle -->
+                            <div class="screen-body" id="screenWelcome">
+                                <div class="screen-title">WELCOME TO METRO BANK</div>
+                                <p class="screen-msg">
+                                    Please select an authorized card from the quick-cards drawer on the right, or click the card reader slot below.
+                                </p>
+                                <div style="margin-top: 1rem; color: #a7f3d0; font-size: 0.9rem;">
+                                    👉 Default Demo PIN for all cards: <strong style="color: #fff; font-size: 1.1rem;">1234</strong>
+                                </div>
+                            </div>
+
+                            <!-- Screen State 2: PIN Entry -->
+                            <div class="screen-body" id="screenPin" style="display: none;">
+                                <div class="screen-title">SECURITY AUTHENTICATION</div>
+                                <p class="screen-msg" id="pinCardPrompt">ENTER 4-DIGIT PIN FOR CARD</p>
+
+                                <div class="pin-dots-container">
+                                    <div class="pin-dot" id="dot1"></div>
+                                    <div class="pin-dot" id="dot2"></div>
+                                    <div class="pin-dot" id="dot3"></div>
+                                    <div class="pin-dot" id="dot4"></div>
+                                </div>
+
+                                <div id="pinAlert" style="color: #f87171; font-size: 0.9rem; min-height: 24px;"></div>
+                            </div>
+
+                            <!-- Screen State 3: Main Services Menu -->
+                            <div class="screen-body" id="screenMenu" style="display: none; align-items: stretch; text-align: left;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="font-weight: 700; color: #a7f3d0;" id="userGreeting">WELCOME, CUSTOMER</div>
+                                    <div style="font-size: 0.85rem; color: #38bdf8;" id="userAccountInfo">ACC: ---</div>
+                                </div>
+
+                                <div class="menu-grid">
+                                    <button class="screen-btn" onclick="atmAction('balance')">
+                                        <span>💰 1. BALANCE INQUIRY</span>
+                                        <span>▶</span>
+                                    </button>
+                                    <button class="screen-btn" onclick="atmAction('withdraw')">
+                                        <span>💵 2. CASH WITHDRAWAL</span>
+                                        <span>▶</span>
+                                    </button>
+                                    <button class="screen-btn" onclick="atmAction('deposit')">
+                                        <span>📥 3. CASH DEPOSIT</span>
+                                        <span>▶</span>
+                                    </button>
+                                    <button class="screen-btn" onclick="atmAction('transfer')">
+                                        <span>🔄 4. FUND TRANSFER</span>
+                                        <span>▶</span>
+                                    </button>
+                                    <button class="screen-btn" onclick="atmAction('statement')">
+                                        <span>📜 5. MINI-STATEMENT</span>
+                                        <span>▶</span>
+                                    </button>
+                                    <button class="screen-btn" onclick="atmAction('change-pin')">
+                                        <span>🔑 6. CHANGE PIN</span>
+                                        <span>▶</span>
+                                    </button>
+                                </div>
+
+                                <div style="margin-top: 1.25rem; display: flex; justify-content: space-between;">
+                                    <button class="screen-btn" style="border-color: #ef4444; color: #fca5a5;" onclick="ejectCard()">
+                                        <span>⏏️ EJECT CARD</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Screen State 4: Dynamic Sub-Action View -->
+                            <div class="screen-body" id="screenAction" style="display: none; align-items: stretch; text-align: left;">
+                                <div id="actionContent"></div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Hardware Slots (Card reader & Dispenser) -->
+                    <div class="hardware-slots">
+                        <div class="slot-box">
+                            <div class="slot-label">💳 CARD READER SLOT</div>
+                            <div class="card-slot-aperture" id="cardSlotAperture" onclick="focusCardDrawer()"></div>
+                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;" id="insertedCardLabel">
+                                No card inserted
+                            </div>
+                        </div>
+
+                        <div class="slot-box">
+                            <div class="slot-label">💵 CASH DISPENSER</div>
+                            <div class="cash-dispenser-aperture" id="cashAperture">
+                                <div class="dispensed-cash" id="dispensedCashSlot" onclick="collectCash()">
+                                    TAKE CASH
+                                </div>
+                            </div>
+                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">
+                                Shutter opens on cash dispense
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Physical Keypad Console -->
+                    <div style="margin-top: 1.5rem;" class="keypad-console">
+                        <div class="keypad-title">SECURE NUMERIC PIN PAD</div>
+                        <div class="keypad-grid">
+                            <button class="key-btn" onclick="pressKey('1')">1</button>
+                            <button class="key-btn" onclick="pressKey('2')">2</button>
+                            <button class="key-btn" onclick="pressKey('3')">3</button>
+                            
+                            <button class="key-btn" onclick="pressKey('4')">4</button>
+                            <button class="key-btn" onclick="pressKey('5')">5</button>
+                            <button class="key-btn" onclick="pressKey('6')">6</button>
+
+                            <button class="key-btn" onclick="pressKey('7')">7</button>
+                            <button class="key-btn" onclick="pressKey('8')">8</button>
+                            <button class="key-btn" onclick="pressKey('9')">9</button>
+
+                            <button class="key-btn btn-cancel" onclick="pressKey('CANCEL')">CANCEL</button>
+                            <button class="key-btn" onclick="pressKey('0')">0</button>
+                            <button class="key-btn btn-clear" onclick="pressKey('CLEAR')">CLEAR</button>
+                        </div>
+                        <div style="margin-top: 0.75rem;">
+                            <button class="key-btn btn-enter" style="width: 100%;" onclick="pressKey('ENTER')">
+                                ENTER / CONFIRM
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Side: Quick Cards Selection Drawer -->
+                <div class="cards-drawer">
+                    <div class="drawer-title">
+                        <span>💳</span> Test ATM Cards
+                    </div>
+                    <div class="drawer-subtitle">
+                        Click any card below to simulate physical insertion into the ATM terminal.
+                    </div>
+
+                    <div class="card-chips-list" id="cardChipsList">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================================================================== -->
+        <!-- VIEW 2: BANK ADMINISTRATION & ANALYTICS                            -->
+        <!-- ================================================================== -->
+        <section id="admin-view" class="view-section">
+            <div class="admin-dashboard">
+                
+                <!-- Review 1 Aggregates / Analytics -->
+                <div class="analytics-cards" id="analyticsCards">
+                    <div class="metric-card">
+                        <div class="metric-label">SAVINGS DEPOSITS</div>
+                        <div class="metric-value" id="totalSavingsBal">₹0.00</div>
+                        <div class="metric-sub" id="savingsAccountsCount">0 Accounts</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">CHECKING DEPOSITS</div>
+                        <div class="metric-value" id="totalCheckingBal">₹0.00</div>
+                        <div class="metric-sub" id="checkingAccountsCount">0 Accounts</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">TRANSACTION VOLUME</div>
+                        <div class="metric-value" id="totalTxVolume">₹0.00</div>
+                        <div class="metric-sub" id="totalTxCount">0 Transactions</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">ACTIVE ATM TERMINALS</div>
+                        <div class="metric-value" id="activeAtmCount">8</div>
+                        <div class="metric-sub">Across 8 Major Cities</div>
+                    </div>
+                </div>
+
+                <!-- Admin Management Grid -->
+                <div class="admin-grid">
+                    
+                    <!-- ATM Network Status & Cash Replenishment -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <span>🏧 ATM Machine Fleet Monitor</span>
+                            <button class="btn-action-small" onclick="loadAdminData()">Refresh</button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Terminal</th>
+                                        <th>Branch</th>
+                                        <th>City</th>
+                                        <th>Cash Level</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="atmsTableBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Security & Card Management -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <span>🔒 Card Security & Lockout Center</span>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">Rule BR-07 Enforcement</span>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Card Number</th>
+                                        <th>Holder</th>
+                                        <th>Failed PINs</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cardsTableBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Thermal Paper Receipt Overlay -->
+    <div class="receipt-overlay" id="receiptOverlay" onclick="closeReceipt()">
+        <div class="thermal-receipt" onclick="event.stopPropagation()">
+            <div class="receipt-header">
+                <div class="receipt-bank">METRO BANK OF INDIA</div>
+                <div>ATM EXPRESS CASH NETWORK</div>
+                <div style="font-size: 0.75rem; color: #78716c;">NARIMAN POINT FLAGSHIP</div>
+            </div>
+
+            <div class="receipt-line">
+                <span>DATE/TIME:</span>
+                <span id="rcptTime">--</span>
+            </div>
+            <div class="receipt-line">
+                <span>TX REF:</span>
+                <span id="rcptRef">--</span>
+            </div>
+            <div class="receipt-line">
+                <span>ACCOUNT:</span>
+                <span id="rcptAccount">--</span>
+            </div>
+            <div class="receipt-line">
+                <span>TRANSACTION:</span>
+                <span id="rcptType">--</span>
+            </div>
+
+            <div class="receipt-total">
+                <span>AMOUNT:</span>
+                <span id="rcptAmount">₹0.00</span>
+            </div>
+
+            <div class="receipt-line">
+                <span>AVAILABLE BAL:</span>
+                <span id="rcptBal" style="font-weight: 700;">₹0.00</span>
+            </div>
+            <div class="receipt-line">
+                <span>AUTH STATUS:</span>
+                <span style="color: #15803d; font-weight: 700;">APPROVED / SUCCESS</span>
+            </div>
+
+            <div class="receipt-footer">
+                THANK YOU FOR BANKING WITH US.<br>
+                PLEASE RETAIN FOR YOUR RECORDS.
+            </div>
+
+            <button class="receipt-close-btn" onclick="closeReceipt()">COLLECT RECEIPT</button>
+        </div>
+    </div>
+
+    <!-- Live SQL Query Inspector (Academic Transparency) -->
+    <footer class="sql-inspector">
+        <div class="sql-header" onclick="toggleSqlLogs()">
+            <div class="sql-title">
+                <span>⚡</span> LIVE SQL EXECUTION LOG (ACID / RELATIONAL ENGINE)
+            </div>
+            <div style="font-size: 0.75rem; color: #94a3b8;" id="sqlToggleLabel">
+                Click to expand/collapse (Live Log)
+            </div>
+        </div>
+        <div class="sql-log-stream" id="sqlLogStream">
+            <!-- Updated via Polling -->
+        </div>
+    </footer>
+
+    <!-- Audio Synthesizer for Keypad & ATM Beeps -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(freq = 600, duration = 0.08) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+    </script>
+
+    <!-- Main Interactive Controller -->
+    <script>
+        // State variables
+        let availableCards = [];
+        let currentCard = null;
+        let currentSession = null;
+        let enteredPin = "";
+        let currentScreen = "welcome";
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // View Switcher
+        function switchView(viewName) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+
+            if (viewName === 'atm') {
+                document.querySelectorAll('.nav-btn')[0].classList.add('active');
+                document.getElementById('atm-view').classList.add('active');
+            } else {
+                document.querySelectorAll('.nav-btn')[1].classList.add('active');
+                document.getElementById('admin-view').classList.add('active');
+                loadAdminData();
+            }
+        }
+
+        // Fetch cards list
+        async function fetchCards() {
+            try {
+                const res = await fetch('/api/cards');
+                const data = await res.json();
+                if (data.success) {
+                    availableCards = data.cards;
+                    renderCardChips();
+                }
+            } catch (err) {
+                console.error("Error fetching cards:", err);
+            }
+        }
+
+        function renderCardChips() {
+            const list = document.getElementById('cardChipsList');
+            list.innerHTML = "";
+            availableCards.forEach(card => {
+                const chip = document.createElement('div');
+                chip.className = `card-chip ${currentCard && currentCard.card_id === card.card_id ? 'selected' : ''}`;
+                chip.onclick = () => insertCard(card);
+
+                const statusClass = card.status === 'ACTIVE' ? 'badge-active' : (card.status === 'BLOCKED' ? 'badge-blocked' : 'badge-expired');
+
+                chip.innerHTML = `
+                    <div class="card-chip-top">
+                        <div class="chip-holder">${card.customer_name}</div>
+                        <div class="chip-badge ${statusClass}">${card.status}</div>
+                    </div>
+                    <div class="chip-number">${card.masked_number}</div>
+                    <div class="chip-footer">
+                        <span>${card.account_type}</span>
+                        <span class="chip-balance">₹${card.balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                `;
+                list.appendChild(chip);
+            });
+        }
+
+        // Insert card into ATM
+        function insertCard(card) {
+            playBeep(880, 0.15);
+            currentCard = card;
+            enteredPin = "";
+            updatePinDots();
+            renderCardChips();
+
+            document.getElementById('cardSlotAperture').classList.add('active');
+            document.getElementById('insertedCardLabel').innerText = `Inserted: ${card.customer_name} (${card.masked_number})`;
+
+            if (card.status === 'BLOCKED') {
+                showScreen('pin');
+                document.getElementById('pinAlert').innerText = "❌ CARD IS BLOCKED! Ask Admin to unblock it.";
+                return;
+            }
+
+            document.getElementById('pinCardPrompt').innerText = `ENTER 4-DIGIT PIN FOR ${card.customer_name.toUpperCase()}`;
+            document.getElementById('pinAlert').innerText = "";
+            showScreen('pin');
+        }
+
+        // Eject Card
+        function ejectCard() {
+            playBeep(440, 0.15);
+            currentCard = null;
+            currentSession = null;
+            enteredPin = "";
+            document.getElementById('cardSlotAperture').classList.remove('active');
+            document.getElementById('insertedCardLabel').innerText = "No card inserted";
+            renderCardChips();
+            showScreen('welcome');
+        }
+
+        function showScreen(screenId) {
+            currentScreen = screenId;
+            document.getElementById('screenWelcome').style.display = screenId === 'welcome' ? 'flex' : 'none';
+            document.getElementById('screenPin').style.display = screenId === 'pin' ? 'flex' : 'none';
+            document.getElementById('screenMenu').style.display = screenId === 'menu' ? 'flex' : 'none';
+            document.getElementById('screenAction').style.display = screenId === 'action' ? 'flex' : 'none';
+        }
+
+        // Keypad Interactions
+        function pressKey(key) {
+            playBeep(700, 0.05);
+
+            if (currentScreen === 'pin') {
+                if (key >= '0' && key <= '9') {
+                    if (enteredPin.length < 4) {
+                        enteredPin += key;
+                        updatePinDots();
+                        if (enteredPin.length === 4) {
+                            submitPin();
+                        }
+                    }
+                } else if (key === 'CLEAR') {
+                    enteredPin = "";
+                    updatePinDots();
+                    document.getElementById('pinAlert').innerText = "";
+                } else if (key === 'CANCEL') {
+                    ejectCard();
+                } else if (key === 'ENTER') {
+                    if (enteredPin.length === 4) submitPin();
+                }
+            } else if (currentScreen === 'menu') {
+                if (key === '1') atmAction('balance');
+                else if (key === '2') atmAction('withdraw');
+                else if (key === '3') atmAction('deposit');
+                else if (key === '4') atmAction('transfer');
+                else if (key === '5') atmAction('statement');
+                else if (key === '6') atmAction('change-pin');
+                else if (key === 'CANCEL') ejectCard();
+            } else if (currentScreen === 'action') {
+                if (key === 'CANCEL') showScreen('menu');
+            }
+        }
+
+        function updatePinDots() {
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById(`dot${i}`);
+                if (i <= enteredPin.length) dot.classList.add('filled');
+                else dot.classList.remove('filled');
+            }
+        }
+
+        // Submit PIN to Backend API
+        async function submitPin() {
+            if (!currentCard) return;
+
+            try {
+                const res = await fetch('/api/auth/pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        card_number: currentCard.card_number,
+                        pin: enteredPin
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(1000, 0.2);
+                    currentSession = data.session;
+                    document.getElementById('userGreeting').innerText = `WELCOME, ${currentSession.customer_name.toUpperCase()}`;
+                    document.getElementById('userAccountInfo').innerText = `ACC: ${currentSession.account_number} (${currentSession.account_type})`;
+                    showScreen('menu');
+                    fetchCards(); // refresh balances
+                } else {
+                    playBeep(250, 0.3);
+                    document.getElementById('pinAlert').innerText = data.message;
+                    enteredPin = "";
+                    updatePinDots();
+                    fetchCards(); // refresh attempt count
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('pinAlert').innerText = "Network error connecting to bank.";
+            }
+        }
+
+        // Screen Sub-Actions
+        async function atmAction(actionType) {
+            playBeep(800, 0.08);
+            const container = document.getElementById('actionContent');
+
+            if (actionType === 'balance') {
+                try {
+                    const res = await fetch(`/api/atm/balance?account_id=${currentSession.account_id}`);
+                    const data = await res.json();
+                    container.innerHTML = `
+                        <div class="screen-title">ACCOUNT BALANCE INQUIRY</div>
+                        <div style="margin: 1.5rem 0; line-height: 2; font-size: 1.05rem;">
+                            <div>Account Number: <strong style="color: #fff;">${data.account_number}</strong></div>
+                            <div>Account Type: <strong style="color: #fff;">${data.account_type}</strong></div>
+                            <div>Current Ledger Balance: <strong style="color: #34d399; font-size: 1.3rem;">₹${data.balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></div>
+                            <div>Minimum Required: ₹${data.minimum_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                            <div>Withdrawable Amount: ₹${data.withdrawable.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                            <button class="screen-btn" onclick="showReceipt('BALANCE_INQUIRY', 0, ${data.balance}, '${data.account_number}', 'TXN-${Date.now()}')">
+                                🖨️ PRINT RECEIPT
+                            </button>
+                            <button class="screen-btn" onclick="showScreen('menu')">
+                                🔙 BACK TO MENU
+                            </button>
+                        </div>
+                    `;
+                    showScreen('action');
+                } catch (e) {
+                    alert("Error fetching balance");
+                }
+            } else if (actionType === 'withdraw') {
+                container.innerHTML = `
+                    <div class="screen-title">CASH WITHDRAWAL</div>
+                    <p style="margin-bottom: 1rem;">Select quick amount or enter custom amount:</p>
+                    <div class="menu-grid" style="margin-bottom: 1rem;">
+                        <button class="screen-btn" onclick="executeWithdraw(500)">₹500</button>
+                        <button class="screen-btn" onclick="executeWithdraw(1000)">₹1,000</button>
+                        <button class="screen-btn" onclick="executeWithdraw(2000)">₹2,000</button>
+                        <button class="screen-btn" onclick="executeWithdraw(5000)">₹5,000</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem;">
+                        <span>Custom (₹):</span>
+                        <input type="number" id="customWithdrawInput" step="100" placeholder="Multiples of 100" 
+                               style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 160px; font-family: monospace;">
+                        <button class="screen-btn" onclick="executeWithdraw(document.getElementById('customWithdrawInput').value)">
+                            DISPENSE
+                        </button>
+                    </div>
+                    <button class="screen-btn" onclick="showScreen('menu')">🔙 BACK TO MENU</button>
+                `;
+                showScreen('action');
+            } else if (actionType === 'deposit') {
+                container.innerHTML = `
+                    <div class="screen-title">CASH DEPOSIT</div>
+                    <p style="margin-bottom: 1rem;">Insert cash notes into deposit slot:</p>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem;">
+                        <span>Amount (₹):</span>
+                        <input type="number" id="depositAmountInput" step="100" placeholder="e.g. 2000" 
+                               style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 160px; font-family: monospace;">
+                        <button class="screen-btn" onclick="executeDeposit(document.getElementById('depositAmountInput').value)">
+                            ACCEPT CASH
+                        </button>
+                    </div>
+                    <button class="screen-btn" onclick="showScreen('menu')">🔙 BACK TO MENU</button>
+                `;
+                showScreen('action');
+            } else if (actionType === 'transfer') {
+                // Fetch other accounts for dropdown
+                const otherAccounts = availableCards
+                    .filter(c => c.account_id !== currentSession.account_id)
+                    .map(c => `<option value="${c.account_number}">${c.account_number} (${c.customer_name} - ${c.account_type})</option>`)
+                    .join('');
+
+                container.innerHTML = `
+                    <div class="screen-title">INTER-ACCOUNT FUND TRANSFER</div>
+                    <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Recipient Account:</label>
+                            <select id="transferDestSelect" style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 100%; font-family: monospace;">
+                                ${otherAccounts}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Transfer Amount (₹):</label>
+                            <input type="number" id="transferAmountInput" placeholder="Amount to transfer" 
+                                   style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 100%; font-family: monospace;">
+                        </div>
+                        <button class="screen-btn" style="margin-top: 0.5rem;" onclick="executeTransfer()">
+                            CONFIRM ATOMIC TRANSFER
+                        </button>
+                    </div>
+                    <button class="screen-btn" onclick="showScreen('menu')">🔙 BACK TO MENU</button>
+                `;
+                showScreen('action');
+            } else if (actionType === 'statement') {
+                try {
+                    const res = await fetch(`/api/atm/statement?account_id=${currentSession.account_id}`);
+                    const data = await res.json();
+                    let txRows = data.transactions.map(t => `
+                        <tr>
+                            <td style="padding: 0.4rem 0.2rem;">${t.time}</td>
+                            <td style="padding: 0.4rem 0.2rem;">${t.type}</td>
+                            <td style="padding: 0.4rem 0.2rem;">₹${t.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            <td style="padding: 0.4rem 0.2rem;">₹${t.balance_after.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `).join('');
+
+                    container.innerHTML = `
+                        <div class="screen-title">MINI-STATEMENT (LAST 5 TRANSACTIONS)</div>
+                        <div style="margin: 0.75rem 0; max-height: 220px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 0.8rem; text-align: left; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--screen-text); color: #34d399;">
+                                        <th>Date/Time</th><th>Type</th><th>Amount</th><th>Bal After</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${txRows || '<tr><td colspan="4">No transactions found</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                        <button class="screen-btn" style="margin-top: 0.5rem;" onclick="showScreen('menu')">🔙 BACK TO MENU</button>
+                    `;
+                    showScreen('action');
+                } catch (e) {
+                    alert("Error loading statement");
+                }
+            } else if (actionType === 'change-pin') {
+                container.innerHTML = `
+                    <div class="screen-title">CHANGE ATM PIN</div>
+                    <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">Current 4-Digit PIN:</label>
+                            <input type="password" maxlength="4" id="oldPinInput" placeholder="Current PIN" 
+                                   style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 100%; font-family: monospace;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.85rem; margin-bottom: 0.25rem;">New 4-Digit PIN:</label>
+                            <input type="password" maxlength="4" id="newPinInput" placeholder="New PIN" 
+                                   style="background: #022c22; border: 1px solid var(--screen-text); color: #fff; padding: 0.5rem; border-radius: 4px; width: 100%; font-family: monospace;">
+                        </div>
+                        <button class="screen-btn" style="margin-top: 0.5rem;" onclick="executeChangePin()">
+                            UPDATE PIN
+                        </button>
+                    </div>
+                    <button class="screen-btn" onclick="showScreen('menu')">🔙 BACK TO MENU</button>
+                `;
+                showScreen('action');
+            }
+        }
+
+        // Execute Withdrawal
+        async function executeWithdraw(amount) {
+            if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
+            try {
+                const res = await fetch('/api/atm/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: currentSession.account_id,
+                        card_id: currentSession.card_id,
+                        amount: amount
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(1200, 0.4);
+                    // Animate Cash Dispenser
+                    triggerCashDispenser(data.amount);
+                    fetchCards();
+                    showReceipt('WITHDRAWAL', data.amount, data.new_balance, data.account_number, `TXN-${data.transaction_id}`);
+                } else {
+                    playBeep(250, 0.3);
+                    alert("Declined: " + data.message);
+                }
+            } catch (err) {
+                alert("Transaction error.");
+            }
+        }
+
+        function triggerCashDispenser(amount) {
+            const slot = document.getElementById('dispensedCashSlot');
+            slot.innerText = `TAKE CASH: ₹${amount.toLocaleString('en-IN')}`;
+            slot.classList.add('show');
+            document.getElementById('cashAperture').classList.add('dispensing');
+        }
+
+        function collectCash() {
+            playBeep(900, 0.1);
+            const slot = document.getElementById('dispensedCashSlot');
+            slot.classList.remove('show');
+            document.getElementById('cashAperture').classList.remove('dispensing');
+            alert("💵 You collected your cash! Thank you for banking with Metro Bank.");
+        }
+
+        // Execute Deposit
+        async function executeDeposit(amount) {
+            if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
+            try {
+                const res = await fetch('/api/atm/deposit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: currentSession.account_id,
+                        amount: amount
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(1100, 0.3);
+                    fetchCards();
+                    showReceipt('DEPOSIT', data.amount, data.new_balance, data.account_number, `TXN-${data.transaction_id}`);
+                } else {
+                    alert("Deposit error: " + data.message);
+                }
+            } catch (e) {
+                alert("Network error during deposit.");
+            }
+        }
+
+        // Execute Transfer
+        async function executeTransfer() {
+            const destAcc = document.getElementById('transferDestSelect').value;
+            const amount = document.getElementById('transferAmountInput').value;
+            if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
+            try {
+                const res = await fetch('/api/atm/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_account_id: currentSession.account_id,
+                        dest_account_number: destAcc,
+                        amount: amount
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(1000, 0.3);
+                    fetchCards();
+                    showReceipt('TRANSFER', data.amount, data.new_balance, data.account_number, `TXN-${data.transaction_id}`);
+                } else {
+                    alert("Transfer error: " + data.message);
+                }
+            } catch (e) {
+                alert("Network error during transfer.");
+            }
+        }
+
+        // Execute Change PIN
+        async function executeChangePin() {
+            const oldPin = document.getElementById('oldPinInput').value;
+            const newPin = document.getElementById('newPinInput').value;
+
+            try {
+                const res = await fetch('/api/atm/change-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        card_id: currentSession.card_id,
+                        old_pin: oldPin,
+                        new_pin: newPin
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert("✅ PIN updated successfully! Please remember your new PIN.");
+                    showScreen('menu');
+                } else {
+                    alert("PIN update failed: " + data.message);
+                }
+            } catch (e) {
+                alert("Error updating PIN");
+            }
+        }
+
+        // Receipt Modal
+        function showReceipt(type, amount, balance, account, ref) {
+            document.getElementById('rcptTime').innerText = new Date().toLocaleString();
+            document.getElementById('rcptRef').innerText = ref;
+            document.getElementById('rcptAccount').innerText = account;
+            document.getElementById('rcptType').innerText = type;
+            document.getElementById('rcptAmount').innerText = `₹${parseFloat(amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('rcptBal').innerText = `₹${parseFloat(balance).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('receiptOverlay').classList.add('show');
+        }
+
+        function closeReceipt() {
+            document.getElementById('receiptOverlay').classList.remove('show');
+            if (currentSession) showScreen('menu');
+        }
+
+        // Load Bank Admin Data
+        async function loadAdminData() {
+            try {
+                // Analytics
+                const aRes = await fetch('/api/admin/analytics');
+                const aData = await aRes.json();
+                if (aData.success) {
+                    const savings = aData.portfolio.find(p => p.type === 'SAVINGS') || {total_balance: 0, count: 0};
+                    const checking = aData.portfolio.find(p => p.type === 'CHECKING') || {total_balance: 0, count: 0};
+
+                    document.getElementById('totalSavingsBal').innerText = `₹${savings.total_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                    document.getElementById('savingsAccountsCount').innerText = `${savings.count} Accounts (Avg: ₹${savings.avg_balance.toLocaleString('en-IN', {maximumFractionDigits: 0})})`;
+
+                    document.getElementById('totalCheckingBal').innerText = `₹${checking.total_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                    document.getElementById('checkingAccountsCount').innerText = `${checking.count} Accounts (Avg: ₹${checking.avg_balance.toLocaleString('en-IN', {maximumFractionDigits: 0})})`;
+
+                    document.getElementById('totalTxVolume').innerText = `₹${aData.total_volume.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                    document.getElementById('totalTxCount').innerText = `${aData.transactions_count} Logged Transactions`;
+                }
+
+                // ATMs
+                const atmRes = await fetch('/api/admin/atms');
+                const atmData = await atmRes.json();
+                if (atmData.success) {
+                    const tbody = document.getElementById('atmsTableBody');
+                    tbody.innerHTML = "";
+                    atmData.atms.forEach(atm => {
+                        const row = document.createElement('tr');
+                        const statusColor = atm.status === 'ONLINE' ? '#34d399' : (atm.status === 'OUT_OF_CASH' ? '#fbbf24' : '#f87171');
+                        row.innerHTML = `
+                            <td><strong>${atm.terminal_code}</strong></td>
+                            <td>${atm.branch_name}</td>
+                            <td>${atm.city}</td>
+                            <td>₹${atm.current_cash_level.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            <td><span style="color: ${statusColor}; font-weight: 700;">${atm.status}</span></td>
+                            <td>
+                                <button class="btn-action-small" onclick="replenishAtm(${atm.atm_id})">Replenish ₹25k</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                // Cards Management
+                const cRes = await fetch('/api/cards');
+                const cData = await cRes.json();
+                if (cData.success) {
+                    const tbody = document.getElementById('cardsTableBody');
+                    tbody.innerHTML = "";
+                    cData.cards.forEach(card => {
+                        const row = document.createElement('tr');
+                        const statusColor = card.status === 'ACTIVE' ? '#34d399' : '#f87171';
+                        row.innerHTML = `
+                            <td><code>${card.masked_number}</code></td>
+                            <td>${card.customer_name}</td>
+                            <td style="text-align: center;">${card.failed_pin_attempts} / 3</td>
+                            <td><span style="color: ${statusColor}; font-weight: 700;">${card.status}</span></td>
+                            <td>
+                                ${card.status === 'BLOCKED' || card.failed_pin_attempts > 0 ? 
+                                    `<button class="btn-action-small" onclick="unblockCard(${card.card_id})">Unblock & Reset</button>` : 
+                                    `<span style="color: #64748b;">Normal</span>`}
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (err) {
+                console.error("Admin load error:", err);
+            }
+        }
+
+        async function replenishAtm(atmId) {
+            try {
+                const res = await fetch('/api/admin/replenish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ atm_id: atmId, amount: 25000 })
+                });
+                const data = await res.json();
+                alert(data.message);
+                loadAdminData();
+            } catch (e) {
+                alert("Error replenishing ATM");
+            }
+        }
+
+        async function unblockCard(cardId) {
+            try {
+                const res = await fetch('/api/admin/unblock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ card_id: cardId })
+                });
+                const data = await res.json();
+                alert(data.message);
+                loadAdminData();
+                fetchCards();
+            } catch (e) {
+                alert("Error unblocking card");
+            }
+        }
+
+        // Live SQL Inspector Stream
+        async function updateSqlLogs() {
+            try {
+                const res = await fetch('/api/admin/sql-logs');
+                const data = await res.json();
+                if (data.success) {
+                    const stream = document.getElementById('sqlLogStream');
+                    stream.innerHTML = data.logs.map(l => `
+                        <div class="sql-entry">
+                            <span class="sql-time">[${l.time}]</span>
+                            <span class="sql-query">${l.query}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {}
+        }
+        setInterval(updateSqlLogs, 2000);
+        updateSqlLogs();
+
+        let sqlCollapsed = false;
+        function toggleSqlLogs() {
+            const stream = document.getElementById('sqlLogStream');
+            sqlCollapsed = !sqlCollapsed;
+            stream.style.display = sqlCollapsed ? 'none' : 'flex';
+            document.getElementById('sqlToggleLabel').innerText = sqlCollapsed ? "Click to expand" : "Click to collapse";
+        }
+
+        function focusCardDrawer() {
+            document.querySelector('.cards-drawer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Global Keyboard Handler (Keys 0-9, Enter, Backspace, Escape)
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                pressKey(e.key);
+            } else if (e.key === 'Enter') {
+                pressKey('ENTER');
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                pressKey('CLEAR');
+            } else if (e.key === 'Escape') {
+                pressKey('CANCEL');
+            }
+        });
+
+        // Initial Load
+        fetchCards();
+    </script>
+</body>
+</html>
+
