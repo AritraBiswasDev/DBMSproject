@@ -477,6 +477,40 @@ def atm_withdraw():
         upd_atm = "UPDATE atm_machines SET current_cash_level = current_cash_level - ? WHERE atm_id = ?;"
         cur.execute(upd_atm, (amount, atm_id))
 
+        # Check for stockout state and automatic predictive replenishment trigger
+        cur.execute("SELECT current_cash_level, min_threshold_level, cash_capacity, daily_burn_rate, city, terminal_code FROM atm_machines WHERE atm_id = ?;", (atm_id,))
+        atm_state = cur.fetchone()
+        if atm_state:
+            new_cash = float(atm_state["current_cash_level"])
+            thresh = float(atm_state["min_threshold_level"])
+            cap = float(atm_state["cash_capacity"])
+            burn = float(atm_state["daily_burn_rate"])
+
+            # If physical cash is exhausted, mark machine OUT_OF_CASH
+            if new_cash <= 0:
+                cur.execute("UPDATE atm_machines SET status = 'OUT_OF_CASH' WHERE atm_id = ?;", (atm_id,))
+
+            # Automated replenishment dispatch if below safety threshold and no pending order
+            if new_cash <= thresh:
+                cur.execute("""
+                    SELECT replenishment_id FROM cash_replenishments
+                    WHERE atm_id = ? AND status IN ('SCHEDULED', 'DISPATCHED', 'IN_TRANSIT')
+                    LIMIT 1;
+                """, (atm_id,))
+                existing_order = cur.fetchone()
+                if not existing_order:
+                    req_topup = cap - new_cash
+                    days_left = round(new_cash / max(burn, 1.0), 2)
+                    urgency = "CRITICAL_STOCKOUT" if (new_cash <= 0 or days_left <= 0.5) else "HIGH"
+                    van_num = f"MH-{atm_id:02d}-CV-{1000 + atm_id * 17}"
+                    now_str_disp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    cur.execute("""
+                        INSERT INTO cash_replenishments 
+                        (atm_id, requested_amount, current_cash_at_request, burn_rate_at_request,
+                         estimated_days_left, urgency_level, status, cit_company, van_vehicle_number, dispatched_at, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, 'DISPATCHED', 'SecureCorp India CIT', ?, ?, ?);
+                    """, (atm_id, req_topup, new_cash, burn, days_left, urgency, van_num, now_str_disp, now_str_disp))
+
         # Record ledger
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ins_tx = """
@@ -1118,6 +1152,357 @@ def simulate_fraud_attack():
             },
             "message": "⚠️ OUTLIER SPENDING ANOMALY DETECTED! Withdrawal ₹1,20,000 exceeds 3.0× historical baseline. Transaction flagged and declined."
         })
+
+# -----------------------------------------------------------------------------
+# PREDICTIVE CASH REPLENISHMENT & LOGISTICS DISPATCH SERVICES
+# -----------------------------------------------------------------------------
+@app.route('/api/cash-replenishment/forecast', methods=['GET'])
+def get_cash_forecast():
+    """
+    Returns real-time predictive stockout forecasts for all ATM terminals:
+    - Moving average daily/hourly burn rates (Window Functions)
+    - Days & hours until physical cash depletion (Stockout Countdown)
+    - Reorder Point & Safety Stock breach flags
+    - Active CIT armored van logistics manifest
+    - Network-wide cash liquidity index
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. Fetch terminals forecast from pure SQL view
+    forecast_q = """
+        SELECT atm_id, terminal_code, branch_name, city, cash_capacity,
+               current_cash_level, min_threshold_level, effective_daily_burn,
+               hourly_burn_rate, days_to_stockout, hours_to_stockout,
+               capacity_utilization_pct, suggested_replenishment_amount,
+               stockout_risk_category, reorder_triggered, machine_status,
+               last_serviced_date
+        FROM v_atm_stockout_forecast
+        ORDER BY 
+            CASE stockout_risk_category
+                WHEN 'OUT_OF_CASH' THEN 1
+                WHEN 'CRITICAL_STOCKOUT' THEN 2
+                WHEN 'HIGH_URGENCY' THEN 3
+                WHEN 'MODERATE' THEN 4
+                ELSE 5
+            END,
+            days_to_stockout ASC;
+    """
+    cur.execute(forecast_q)
+    terminals = [dict(r) for r in cur.fetchall()]
+    log_sql(forecast_q)
+
+    # 2. Fetch active and recent replenishment orders
+    replenish_q = """
+        SELECT replenishment_id, atm_id, terminal_code, city, branch_name,
+               requested_amount, current_cash_at_request, burn_rate_at_request,
+               estimated_days_left, urgency_level, replenishment_status,
+               cit_company, van_vehicle_number, dispatched_at, completed_at, created_at
+        FROM v_active_cash_replenishments
+        LIMIT 15;
+    """
+    cur.execute(replenish_q)
+    replenishments = [dict(r) for r in cur.fetchall()]
+    log_sql(replenish_q)
+
+    # 3. Calculate fleet summary metrics
+    total_cash = sum(t["current_cash_level"] for t in terminals)
+    total_cap = sum(t["cash_capacity"] for t in terminals)
+    liq_pct = round((total_cash / total_cap * 100.0), 1) if total_cap > 0 else 0.0
+    critical_count = sum(1 for t in terminals if t["stockout_risk_category"] in ("CRITICAL_STOCKOUT", "OUT_OF_CASH"))
+    reorders_count = sum(1 for t in terminals if t["reorder_triggered"] == 1)
+    active_vans = sum(1 for r in replenishments if r["replenishment_status"] in ("DISPATCHED", "IN_TRANSIT"))
+
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "terminals": terminals,
+        "replenishments": replenishments,
+        "summary": {
+            "total_vault_cash": total_cash,
+            "total_network_capacity": total_cap,
+            "network_liquidity_pct": liq_pct,
+            "critical_alarms": critical_count,
+            "reorders_pending": reorders_count,
+            "active_vans": active_vans,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+    })
+
+@app.route('/api/cash-replenishment/dispatch', methods=['POST'])
+def dispatch_cash_van():
+    """
+    Dispatches a Cash-in-Transit (CIT) armored security van to replenish an ATM terminal.
+    Calculates the Economic Replenishment Quantity (EOQ: Capacity - Current Cash).
+    """
+    data = request.json or {}
+    atm_id = data.get("atm_id")
+    cit_company = data.get("cit_company", "SecureCorp India CIT")
+    urgency = data.get("urgency_level")
+
+    if not atm_id:
+        return jsonify({"success": False, "message": "ATM ID is required."}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM v_atm_stockout_forecast WHERE atm_id = ?;", (atm_id,))
+    atm = cur.fetchone()
+
+    if not atm:
+        conn.close()
+        return jsonify({"success": False, "message": f"ATM #{atm_id} not found."}), 404
+
+    # Check if there is already an active van in transit
+    cur.execute("""
+        SELECT replenishment_id, status, van_vehicle_number FROM cash_replenishments
+        WHERE atm_id = ? AND status IN ('SCHEDULED', 'DISPATCHED', 'IN_TRANSIT')
+        LIMIT 1;
+    """, (atm_id,))
+    active_order = cur.fetchone()
+
+    if active_order:
+        conn.close()
+        return jsonify({
+            "success": False,
+            "message": f"Armored Van {active_order['van_vehicle_number']} is already {active_order['status']} for {atm['terminal_code']}."
+        }), 400
+
+    # Calculate optimal top-up amount
+    req_amount = max(5000.0, float(atm["suggested_replenishment_amount"]))
+    cur_cash = float(atm["current_cash_level"])
+    burn_rate = float(atm["effective_daily_burn"])
+    days_left = float(atm["days_to_stockout"])
+
+    if not urgency:
+        urgency = "CRITICAL_STOCKOUT" if (cur_cash <= 0 or days_left <= 0.5) else ("HIGH" if days_left <= 1.5 else "NORMAL")
+
+    van_plates = {
+        1: "MH-01-CV-7890", 2: "DL-01-CV-3312", 3: "KA-04-CV-9981", 4: "WB-02-CV-6542",
+        5: "TS-09-UB-8891", 6: "TN-01-CV-4421", 7: "MH-12-CV-4412", 8: "GJ-01-CV-5534"
+    }
+    van_plate = van_plates.get(int(atm_id), f"IND-CIT-{1000 + int(atm_id)}")
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    ins_q = """
+        INSERT INTO cash_replenishments 
+        (atm_id, requested_amount, current_cash_at_request, burn_rate_at_request,
+         estimated_days_left, urgency_level, status, cit_company, van_vehicle_number, dispatched_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'IN_TRANSIT', ?, ?, ?, ?);
+    """
+    cur.execute(ins_q, (atm_id, req_amount, cur_cash, burn_rate, days_left, urgency, cit_company, van_plate, now_str, now_str))
+    order_id = cur.lastrowid
+    conn.commit()
+    log_sql(ins_q, (atm_id, req_amount, urgency, van_plate))
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "order_id": order_id,
+        "terminal_code": atm["terminal_code"],
+        "city": atm["city"],
+        "van_vehicle_number": van_plate,
+        "cit_company": cit_company,
+        "requested_amount": req_amount,
+        "urgency_level": urgency,
+        "status": "IN_TRANSIT",
+        "message": f"🚚 Armored Van {van_plate} dispatched to {atm['terminal_code']} ({atm['city']})! Carrying ₹{req_amount:,.2f} for emergency vault replenishment."
+    })
+
+@app.route('/api/cash-replenishment/complete', methods=['POST'])
+def complete_cash_replenishment():
+    """
+    Simulates the safe arrival of the CIT armored van, physical cash loading into the ATM vault,
+    bringing cash level to capacity, updating ATM status back to ONLINE, and marking order COMPLETED.
+    """
+    data = request.json or {}
+    replenish_id = data.get("replenishment_id")
+    atm_id = data.get("atm_id")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    if replenish_id:
+        cur.execute("SELECT * FROM cash_replenishments WHERE replenishment_id = ?;", (replenish_id,))
+    elif atm_id:
+        cur.execute("""
+            SELECT * FROM cash_replenishments
+            WHERE atm_id = ? AND status IN ('DISPATCHED', 'IN_TRANSIT', 'SCHEDULED')
+            ORDER BY created_at DESC LIMIT 1;
+        """, (atm_id,))
+    else:
+        conn.close()
+        return jsonify({"success": False, "message": "Replenishment ID or ATM ID is required."}), 400
+
+    order = cur.fetchone()
+    if not order:
+        conn.close()
+        return jsonify({"success": False, "message": "No active replenishment order found."}), 404
+
+    target_atm_id = order["atm_id"]
+    topup_amt = float(order["requested_amount"])
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Update ATM cash level and reset status to ONLINE
+    cur.execute("SELECT cash_capacity, current_cash_level, terminal_code, city FROM atm_machines WHERE atm_id = ?;", (target_atm_id,))
+    atm = cur.fetchone()
+    if not atm:
+        conn.close()
+        return jsonify({"success": False, "message": "Target ATM machine not found."}), 404
+
+    new_cash = min(float(atm["cash_capacity"]), float(atm["current_cash_level"]) + topup_amt)
+    upd_atm = """
+        UPDATE atm_machines
+        SET current_cash_level = ?, status = 'ONLINE', last_serviced_date = CURRENT_DATE
+        WHERE atm_id = ?;
+    """
+    cur.execute(upd_atm, (new_cash, target_atm_id))
+
+    # 2. Update cash replenishment order to COMPLETED
+    upd_order = """
+        UPDATE cash_replenishments
+        SET status = 'COMPLETED', completed_at = ?
+        WHERE replenishment_id = ?;
+    """
+    cur.execute(upd_order, (now_str, order["replenishment_id"]))
+
+    # 3. Log into physical cash audit ledger
+    cur.execute("""
+        INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+        VALUES (101, ?, 'DEPOSIT', ?, ?, 'SUCCESS', ?, ?);
+    """, (target_atm_id, topup_amt, new_cash, f"CIT Physical Vault Replenishment by {order['van_vehicle_number']}", now_str))
+
+    conn.commit()
+    log_sql(f"UPDATE atm_machines SET current_cash_level = {new_cash} ... COMPLETED;")
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "replenishment_id": order["replenishment_id"],
+        "terminal_code": atm["terminal_code"],
+        "city": atm["city"],
+        "vault_cash_after": new_cash,
+        "status": "ONLINE",
+        "message": f"✅ Vault replenishment completed for {atm['terminal_code']} ({atm['city']})! ₹{topup_amt:,.2f} loaded. Terminal is 100% ONLINE."
+    })
+
+@app.route('/api/cash-replenishment/simulate-rush', methods=['POST'])
+def simulate_cash_rush():
+    """
+    Simulates real-world cash depletion surges:
+    1. 'diwali_rush': Festive shopping surge draining ₹28,000 and accelerating burn rate.
+    2. 'payday_drain': Monthly payday rush draining ₹20,000.
+    3. 'weekend_spike': High weekend withdrawal velocity draining ₹15,000.
+    Demonstrates in-database threshold breach, window burn escalation, and auto-dispatch!
+    """
+    data = request.json or {}
+    atm_id = int(data.get("atm_id", 1))
+    scenario = data.get("scenario", "diwali_rush")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM atm_machines WHERE atm_id = ?;", (atm_id,))
+    atm = cur.fetchone()
+    if not atm:
+        conn.close()
+        return jsonify({"success": False, "message": "ATM not found."}), 404
+
+    scenarios = {
+        "diwali_rush": {
+            "name": "Diwali Festival Shopping Surge",
+            "drain_amount": 28000.0,
+            "burn_multiplier": 2.5,
+            "desc": "Heavy festive shopping withdrawals at retail hub. High note-count drain."
+        },
+        "payday_drain": {
+            "name": "Monthly Payday Cash Drain",
+            "drain_amount": 20000.0,
+            "burn_multiplier": 1.8,
+            "desc": "Salaried employee cash disbursements surge. Vault depleted by 40%."
+        },
+        "weekend_spike": {
+            "name": "Long Weekend Entertainment Rush",
+            "drain_amount": 15000.0,
+            "burn_multiplier": 1.5,
+            "desc": "Entertainment and dining district withdrawals peaking."
+        }
+    }
+
+    sc = scenarios.get(scenario, scenarios["diwali_rush"])
+    drain = sc["drain_amount"]
+    cur_cash = float(atm["current_cash_level"])
+    new_cash = max(500.0, cur_cash - drain)
+    new_burn = round(float(atm["daily_burn_rate"]) * sc["burn_multiplier"], 2)
+    thresh = float(atm["min_threshold_level"])
+    cap = float(atm["cash_capacity"])
+
+    # Update ATM physical cash level & burn velocity
+    cur.execute("""
+        UPDATE atm_machines
+        SET current_cash_level = ?, daily_burn_rate = ?
+        WHERE atm_id = ?;
+    """, (new_cash, new_burn, atm_id))
+
+    # Add simulated transactions to create empirical moving window velocity
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for i in range(3):
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (101, ?, 'WITHDRAWAL', ?, 5000.00, 'SUCCESS', ?, ?);
+        """, (atm_id, round(drain / 3.0, 2), f"Simulated {sc['name']} Withdrawal #{i+1}", now_str))
+
+    # Auto-dispatch CIT Armored Van if below threshold
+    auto_dispatched = False
+    van_order = None
+    if new_cash <= thresh:
+        cur.execute("""
+            SELECT replenishment_id FROM cash_replenishments
+            WHERE atm_id = ? AND status IN ('SCHEDULED', 'DISPATCHED', 'IN_TRANSIT')
+            LIMIT 1;
+        """, (atm_id,))
+        if not cur.fetchone():
+            req_topup = cap - new_cash
+            days_left = round(new_cash / new_burn, 2)
+            urgency = "CRITICAL_STOCKOUT" if (new_cash <= 2000.0 or days_left <= 0.5) else "HIGH"
+            van_plate = f"MH-{atm_id:02d}-CV-9021"
+            cur.execute("""
+                INSERT INTO cash_replenishments 
+                (atm_id, requested_amount, current_cash_at_request, burn_rate_at_request,
+                 estimated_days_left, urgency_level, status, cit_company, van_vehicle_number, dispatched_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'DISPATCHED', 'SecureCorp India CIT', ?, ?, ?);
+            """, (atm_id, req_topup, new_cash, new_burn, days_left, urgency, van_plate, now_str, now_str))
+            auto_dispatched = True
+            van_order = {
+                "van": van_plate,
+                "amount": req_topup,
+                "urgency": urgency
+            }
+
+    conn.commit()
+    conn.close()
+
+    days_left = round(new_cash / new_burn, 2)
+    hours_left = round(days_left * 24.0, 1)
+
+    return jsonify({
+        "success": True,
+        "scenario": sc["name"],
+        "terminal_code": atm["terminal_code"],
+        "city": atm["city"],
+        "drain_amount": drain,
+        "cash_before": cur_cash,
+        "cash_after": new_cash,
+        "new_daily_burn": new_burn,
+        "days_to_stockout": days_left,
+        "hours_to_stockout": hours_left,
+        "safety_threshold_breached": (new_cash <= thresh),
+        "auto_dispatched": auto_dispatched,
+        "van_order": van_order,
+        "message": f"⚡ SIMULATION TRIGGERED: {sc['name']} on {atm['terminal_code']} ({atm['city']})! Cash depleted to ₹{new_cash:,.2f} ({days_left} days left). {'🚨 Safety stock breached — Emergency CIT Van dispatched!' if auto_dispatched else ''}"
+    })
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

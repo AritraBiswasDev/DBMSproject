@@ -1063,6 +1063,210 @@
             70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+
+        /* ==========================================================================
+           PREDICTIVE CASH REPLENISHMENT & LOGISTICS RADAR
+           ========================================================================== */
+        .cash-radar-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+        }
+
+        .atm-cash-card {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .atm-cash-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+
+        .atm-cash-card.status-critical {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, #1e293b 100%);
+        }
+
+        .atm-cash-card.status-high {
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, #1e293b 100%);
+        }
+
+        .atm-cash-card.status-optimal {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .cash-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .atm-code-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
+        .urgency-pill {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.25rem 0.55rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .urgency-optimal {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .urgency-moderate {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .urgency-high {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .urgency-critical {
+            background: rgba(239, 68, 68, 0.18);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+
+        .cash-countdown-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            margin: 0.75rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .countdown-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+
+        .vault-progress-track {
+            height: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin: 0.5rem 0 0.75rem 0;
+            position: relative;
+        }
+
+        .vault-progress-bar {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bar-optimal {
+            background: linear-gradient(90deg, #10b981, #059669);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .bar-moderate {
+            background: linear-gradient(90deg, #38bdf8, #0284c7);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .bar-high {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+
+        .bar-critical {
+            background: linear-gradient(90deg, #ef4444, #b91c1c);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+        }
+
+        .dispatch-btn {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #fff;
+            border: none;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            width: 100%;
+        }
+
+        .dispatch-btn:hover {
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+        }
+
+        .complete-refill-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            border: none;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            width: 100%;
+        }
+
+        .complete-refill-btn:hover {
+            background: linear-gradient(135deg, #34d399, #10b981);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .cit-van-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(245, 158, 11, 0.12);
+            color: #fbbf24;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -1086,6 +1290,9 @@
             </button>
             <button class="nav-btn" onclick="switchView('fraud')">
                 <span>🛡️</span> Fraud & Geo-Velocity Radar
+            </button>
+            <button class="nav-btn" onclick="switchView('cash-prediction')">
+                <span>🚚</span> Predictive Cash & Logistics
             </button>
         </nav>
 
@@ -1635,6 +1842,223 @@
             </div>
         </section>
 
+        <!-- ================================================================== -->
+        <!-- VIEW 4: PREDICTIVE CASH REPLENISHMENT & LOGISTICS RADAR           -->
+        <!-- ================================================================== -->
+        <section id="cash-prediction-view" class="view-section">
+            <div class="admin-dashboard">
+                
+                <!-- Section Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 0.6rem;">
+                            <span>🚚</span> Predictive Cash Replenishment & Intelligent Logistics
+                        </div>
+                        <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.25rem;">
+                            Automated inventory forecasting • Moving average depletion velocity (SQL window functions) • Reorder Point (ROP) & CIT armored van dispatching
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button class="nav-btn" onclick="fetchCashForecast()" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                            <span>🔄</span> Refresh Cash Radar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 1. Top Metrics Analytics Cards -->
+                <div class="analytics-cards">
+                    <div class="metric-card">
+                        <div class="metric-label">Network Vault Cash</div>
+                        <div class="metric-value" id="cashMetricVault">₹0.00</div>
+                        <div class="metric-sub" id="cashMetricCapacity">Cap: ₹0.00</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Liquidity Health</div>
+                        <div class="metric-value" id="cashMetricHealth" style="color: #38bdf8;">0.0%</div>
+                        <div class="metric-sub">Network Vault Saturation</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Critical Stockouts</div>
+                        <div class="metric-value" id="cashMetricCritical" style="color: #f87171;">0</div>
+                        <div class="metric-sub">Urgent Refill Required</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Armored Vans Active</div>
+                        <div class="metric-value" id="cashMetricVans" style="color: #fbbf24;">0</div>
+                        <div class="metric-sub">CIT Vans in Transit</div>
+                    </div>
+                </div>
+
+                <!-- 2. Interactive Cash Drain & Rush Simulation Sandbox -->
+                <div class="sim-container">
+                    <div class="sim-header">
+                        <div>
+                            <div style="font-weight: 800; font-size: 1.1rem; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>⚡</span> Interactive Cash Depletion & Festive Surge Sandbox
+                            </div>
+                            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.2rem;">
+                                Trigger high-volume cash drain scenarios to evaluate real-time threshold breaches, moving average burn spikes, and automated armored van dispatches.
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <label style="font-size: 0.8rem; font-weight: 700; color: #cbd5e1;">Target ATM:</label>
+                            <select id="simCashAtmSelect" class="sim-target-select">
+                                <option value="1">ATM-01: Mumbai (Nariman Point)</option>
+                                <option value="2">ATM-02: New Delhi (Connaught Place)</option>
+                                <option value="3">ATM-03: Bengaluru (MG Road)</option>
+                                <option value="4">ATM-04: Kolkata (Park Street)</option>
+                                <option value="5">ATM-05: Hyderabad (Banjara Hills)</option>
+                                <option value="6">ATM-06: Chennai (Anna Salai)</option>
+                                <option value="7">ATM-07: Pune (FC Road)</option>
+                                <option value="8">ATM-08: Ahmedabad (SG Highway)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="sim-grid">
+                        <!-- Scenario 1: Diwali Rush -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>🪔</span> Diwali Festival Shopping Rush
+                                </div>
+                                <div class="sim-card-desc">
+                                    Simulates intense festive market withdrawals draining ₹28,000 cash in rapid bursts, accelerating the daily burn rate by 2.5× and triggering safety stock alarms.
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-danger" onclick="triggerCashSim('diwali_rush')">
+                                <span>🚀</span> Trigger Diwali Rush (-₹28,000)
+                            </button>
+                        </div>
+
+                        <!-- Scenario 2: Payday Surge -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>💼</span> Monthly Payday Cash Drain
+                                </div>
+                                <div class="sim-card-desc">
+                                    Simulates corporate payday cash withdrawals draining ₹20,000, accelerating burn by 1.8× and compressing days-to-stockout down toward the reorder threshold.
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-warning" onclick="triggerCashSim('payday_drain')">
+                                <span>⚡</span> Trigger Payday Surge (-₹20,000)
+                            </button>
+                        </div>
+
+                        <!-- Scenario 3: Weekend Spike -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>🎉</span> Weekend Entertainment Spike
+                                </div>
+                                <div class="sim-card-desc">
+                                    Simulates leisure district weekend withdrawals draining ₹15,000 with a 1.5× velocity multiplier, testing preventative scheduled reorder points.
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-info" onclick="triggerCashSim('weekend_spike')">
+                                <span>📈</span> Trigger Weekend Surge (-₹15,000)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Result Feedback Toast -->
+                    <div id="simCashResultBox" class="sim-result-box">
+                        <div id="simCashResultContent"></div>
+                    </div>
+                </div>
+
+                <!-- 3. Fleet Cash Depletion Radar Grid (All 8 ATMs) -->
+                <div>
+                    <div class="panel-header" style="margin-bottom: 1rem;">
+                        <span style="display: flex; align-items: center; gap: 0.5rem; color: #f8fafc; font-size: 1.15rem;">
+                            <span>📡</span> ATM Fleet Liquidity Depletion Radar (Live Stockout Forecast)
+                        </span>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">
+                            Formula: Days Left = Current Cash / Daily Burn Rate
+                        </span>
+                    </div>
+
+                    <div class="cash-radar-grid" id="cashRadarCardsContainer">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- 4. Active CIT Armored Van Fleet Manifest & Orders -->
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span style="display: flex; align-items: center; gap: 0.5rem; color: #f8fafc;">
+                            <span>🚚</span> CIT Armored Van Logistics Manifest & Replenishment Orders
+                        </span>
+                        <span style="font-size: 0.8rem; color: #10b981; font-family: 'JetBrains Mono', monospace;">
+                            Table: cash_replenishments
+                        </span>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Terminal & City</th>
+                                    <th>Van Vehicle #</th>
+                                    <th>CIT Security Company</th>
+                                    <th>Requested Cash</th>
+                                    <th>Urgency</th>
+                                    <th>Status</th>
+                                    <th>Dispatched At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cashReplenishmentTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. Mathematical & Academic Architecture Explainer -->
+                <div class="panel-box" style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div class="panel-header" style="color: #38bdf8;">
+                        <span>📐 Relational Inventory Theory & Mathematical Formulations</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+                        <div>
+                            <strong style="color: #f8fafc;">1. Inventory Reorder Point (ROP) & Safety Stock</strong>
+                            <p style="margin-top: 0.4rem; color: #94a3b8;">
+                                To prevent ATM cash-outs without holding excessive idle currency ("Cost of Float"), the relational engine implements inventory reorder point formulas directly in SQL:
+                            </p>
+                            <div style="background: #020617; padding: 0.75rem; border-radius: 8px; margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #a7f3d0; border-left: 3px solid #10b981;">
+                                Reorder Point (ROP) = (Daily Burn Rate &times; Lead Time) + Safety Stock<br>
+                                Days to Stockout = Current Physical Cash / Daily Burn Rate
+                            </div>
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8;">
+                                When cash level drops below <code style="color: #fbbf24;">min_threshold_level</code> or Days &le; 1.5, an automated CIT dispatch order is inserted into <code style="color: #38bdf8;">cash_replenishments</code>.
+                            </p>
+                        </div>
+                        <div>
+                            <strong style="color: #f8fafc;">2. Multi-Period Moving Average SQL Window Functions</strong>
+                            <p style="margin-top: 0.4rem; color: #94a3b8;">
+                                Rather than relying on static estimates, dynamic cash depletion velocity is evaluated over sliding historical withdrawal partitions:
+                            </p>
+                            <div style="background: #020617; padding: 0.75rem; border-radius: 8px; margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #38bdf8; border-left: 3px solid #0284c7;">
+                                AVG(daily_cash_dispensed) OVER (<br>
+                                &nbsp;&nbsp;PARTITION BY atm_id ORDER BY tx_date<br>
+                                &nbsp;&nbsp;ROWS BETWEEN 2 PRECEDING AND CURRENT ROW<br>
+                                ) AS moving_avg_burn_3d
+                            </div>
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8;">
+                                This filters high-frequency noise while detecting genuine demand accelerations (e.g., festivals or paydays) in real time.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
     </main>
 
     <!-- Thermal Paper Receipt Overlay -->
@@ -1754,6 +2178,10 @@
                 document.querySelectorAll('.nav-btn')[2].classList.add('active');
                 document.getElementById('fraud-view').classList.add('active');
                 loadFraudData();
+            } else if (viewName === 'cash-prediction') {
+                document.querySelectorAll('.nav-btn')[3].classList.add('active');
+                document.getElementById('cash-prediction-view').classList.add('active');
+                fetchCashForecast();
             }
         }
 
@@ -2538,6 +2966,313 @@
                 resultBox.style.borderLeftColor = '#ef4444';
                 resultBox.innerHTML = `❌ Simulation failed: ${err.message}`;
             }
+        }
+
+        // =====================================================================
+        // PREDICTIVE CASH REPLENISHMENT & LOGISTICS RADAR CONTROLLER
+        // =====================================================================
+        let cashForecastData = null;
+
+        async function fetchCashForecast() {
+            try {
+                const res = await fetch('/api/cash-replenishment/forecast');
+                const data = await res.json();
+                if (!data.success) return;
+
+                cashForecastData = data;
+                const s = data.summary;
+
+                // Update summary metrics
+                const vaultEl = document.getElementById('cashMetricVault');
+                const capEl = document.getElementById('cashMetricCapacity');
+                const healthEl = document.getElementById('cashMetricHealth');
+                const critEl = document.getElementById('cashMetricCritical');
+                const vansEl = document.getElementById('cashMetricVans');
+
+                if (vaultEl) vaultEl.innerText = `₹${s.total_vault_cash.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                if (capEl) capEl.innerText = `Cap: ₹${s.total_network_capacity.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                if (healthEl) healthEl.innerText = `${s.network_liquidity_pct.toFixed(1)}%`;
+                if (critEl) critEl.innerText = s.critical_alarms;
+                if (vansEl) vansEl.innerText = s.active_vans;
+
+                // Render Terminal Radar Cards
+                const cardsContainer = document.getElementById('cashRadarCardsContainer');
+                if (!cardsContainer) return;
+                cardsContainer.innerHTML = '';
+
+                data.terminals.forEach(t => {
+                    const card = document.createElement('div');
+                    
+                    let cardStatusClass = 'status-optimal';
+                    let urgencyBadge = `<span class="urgency-pill urgency-optimal">✅ OPTIMAL</span>`;
+                    let barClass = 'bar-optimal';
+
+                    if (t.stockout_risk_category === 'OUT_OF_CASH') {
+                        cardStatusClass = 'status-critical';
+                        urgencyBadge = `<span class="urgency-pill urgency-critical">⚠️ OUT OF CASH</span>`;
+                        barClass = 'bar-critical';
+                    } else if (t.stockout_risk_category === 'CRITICAL_STOCKOUT') {
+                        cardStatusClass = 'status-critical';
+                        urgencyBadge = `<span class="urgency-pill urgency-critical">🚨 CRITICAL (&lt;12h)</span>`;
+                        barClass = 'bar-critical';
+                    } else if (t.stockout_risk_category === 'HIGH_URGENCY') {
+                        cardStatusClass = 'status-high';
+                        urgencyBadge = `<span class="urgency-pill urgency-high">⚠️ HIGH URGENCY</span>`;
+                        barClass = 'bar-high';
+                    } else if (t.stockout_risk_category === 'MODERATE') {
+                        cardStatusClass = 'status-moderate';
+                        urgencyBadge = `<span class="urgency-pill urgency-moderate">ℹ️ MODERATE</span>`;
+                        barClass = 'bar-moderate';
+                    }
+
+                    // Check if an armored van is currently active for this ATM
+                    const activeOrder = data.replenishments.find(r => r.atm_id === t.atm_id && ['DISPATCHED', 'IN_TRANSIT', 'SCHEDULED'].includes(r.replenishment_status));
+
+                    let countdownText = `${t.days_to_stockout} Days Left`;
+                    let countdownColor = '#38bdf8';
+                    if (t.days_to_stockout <= 0) {
+                        countdownText = '🚨 DEPLETED (0.0h)';
+                        countdownColor = '#f87171';
+                    } else if (t.days_to_stockout <= 0.5) {
+                        countdownText = `🚨 ${t.hours_to_stockout} Hours Left`;
+                        countdownColor = '#f87171';
+                    } else if (t.days_to_stockout <= 1.5) {
+                        countdownText = `⚠️ ${t.days_to_stockout} Days (${t.hours_to_stockout}h)`;
+                        countdownColor = '#fbbf24';
+                    }
+
+                    // Action button logic
+                    let actionHtml = '';
+                    if (activeOrder) {
+                        actionHtml = `
+                            <div style="margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <div class="cit-van-badge">🚚 ${activeOrder.van_vehicle_number} (${activeOrder.replenishment_status})</div>
+                                <span style="font-size: 0.72rem; color: #a7f3d0; font-weight: 700;">+₹${activeOrder.requested_amount.toLocaleString('en-IN')}</span>
+                            </div>
+                            <button class="complete-refill-btn" onclick="completeVanRefill(${t.atm_id}, ${activeOrder.replenishment_id})">
+                                <span>✅</span> Complete Vault Refill
+                            </button>
+                        `;
+                    } else if (t.current_cash_level < t.cash_capacity) {
+                        actionHtml = `
+                            <button class="dispatch-btn" onclick="dispatchVan(${t.atm_id})">
+                                <span>🚚</span> Dispatch CIT Armored Van
+                            </button>
+                        `;
+                    } else {
+                        actionHtml = `
+                            <div style="text-align: center; font-size: 0.75rem; color: #10b981; font-weight: 700; padding: 0.5rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                                🔒 100% SATURATED
+                            </div>
+                        `;
+                    }
+
+                    card.className = `atm-cash-card ${cardStatusClass}`;
+                    card.innerHTML = `
+                        <div>
+                            <div class="cash-card-header">
+                                <div>
+                                    <span class="atm-code-badge">${t.terminal_code}</span>
+                                    <div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc; margin-top: 0.35rem;">
+                                        ${t.city}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #94a3b8;">
+                                        ${t.branch_name}
+                                    </div>
+                                </div>
+                                ${urgencyBadge}
+                            </div>
+
+                            <div class="cash-countdown-banner">
+                                <span style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Depletion Clock:</span>
+                                <span class="countdown-time" style="color: ${countdownColor};">${countdownText}</span>
+                            </div>
+
+                            <!-- Progress Track -->
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.5rem;">
+                                <span style="font-weight: 700; color: #f8fafc;">₹${t.current_cash_level.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                <span style="color: #64748b;">Cap: ₹${t.cash_capacity.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+
+                            <div class="vault-progress-track">
+                                <div class="vault-progress-bar ${barClass}" style="width: ${Math.min(100, Math.max(0, t.capacity_utilization_pct))}%;"></div>
+                            </div>
+
+                            <!-- Burn velocity & safety metrics -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.72rem; color: #cbd5e1; margin-bottom: 0.9rem; background: rgba(0,0,0,0.25); padding: 0.5rem; border-radius: 6px;">
+                                <div>
+                                    <div style="color: #94a3b8;">Burn Velocity:</div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #38bdf8;">₹${t.effective_daily_burn.toLocaleString('en-IN')}/day</div>
+                                </div>
+                                <div>
+                                    <div style="color: #94a3b8;">Safety Stock:</div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fbbf24;">₹${t.min_threshold_level.toLocaleString('en-IN')}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            ${actionHtml}
+                        </div>
+                    `;
+
+                    cardsContainer.appendChild(card);
+                });
+
+                // Render Logistics Manifest Table
+                const tbody = document.getElementById('cashReplenishmentTableBody');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+
+                if (data.replenishments.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 1.5rem;">No active or historical replenishment orders found.</td></tr>`;
+                } else {
+                    data.replenishments.forEach(r => {
+                        const tr = document.createElement('tr');
+
+                        let statusBadge = `<span class="chip-badge badge-active">${r.replenishment_status}</span>`;
+                        if (r.replenishment_status === 'IN_TRANSIT') {
+                            statusBadge = `<span class="chip-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">🚚 IN TRANSIT</span>`;
+                        } else if (r.replenishment_status === 'COMPLETED') {
+                            statusBadge = `<span class="chip-badge badge-active">✅ COMPLETED</span>`;
+                        }
+
+                        let urgencyColor = r.urgency_level === 'CRITICAL_STOCKOUT' ? '#ef4444' : (r.urgency_level === 'HIGH' ? '#f59e0b' : '#38bdf8');
+
+                        let actionBtn = '-';
+                        if (['DISPATCHED', 'IN_TRANSIT', 'SCHEDULED'].includes(r.replenishment_status)) {
+                            actionBtn = `<button class="sim-btn sim-btn-info" style="padding: 0.3rem 0.6rem; font-size: 0.72rem; width: auto;" onclick="completeVanRefill(${r.atm_id}, ${r.replenishment_id})">Complete Refill</button>`;
+                        }
+
+                        tr.innerHTML = `
+                            <td><strong>#${r.replenishment_id}</strong></td>
+                            <td><strong>${r.terminal_code}</strong> <span style="color: #94a3b8;">(${r.city})</span></td>
+                            <td><code>${r.van_vehicle_number}</code></td>
+                            <td>${r.cit_company}</td>
+                            <td><strong style="color: #a7f3d0;">₹${r.requested_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong></td>
+                            <td><span style="color: ${urgencyColor}; font-weight: 700;">${r.urgency_level}</span></td>
+                            <td>${statusBadge}</td>
+                            <td style="font-size: 0.75rem; color: #94a3b8;">${r.dispatched_at || r.created_at}</td>
+                            <td>${actionBtn}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+            } catch (err) {
+                console.error("Cash forecast error:", err);
+            }
+        }
+
+        // Dispatch Armored CIT Van
+        async function dispatchVan(atmId) {
+            playBeep(700, 0.12);
+            try {
+                const res = await fetch('/api/cash-replenishment/dispatch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ atm_id: parseInt(atmId) })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(980, 0.2);
+                    showSimCashNotice(`🚚 Armored Van ${data.van_vehicle_number} dispatched to ${data.terminal_code} (${data.city}) with ₹${data.requested_amount.toLocaleString('en-IN')}!`, '#10b981');
+                    fetchCashForecast();
+                    updateSqlLogs();
+                } else {
+                    showSimCashNotice(`⚠️ ${data.message}`, '#f59e0b');
+                }
+            } catch (err) {
+                showSimCashNotice(`❌ Dispatch failed: ${err.message}`, '#ef4444');
+            }
+        }
+
+        // Complete Refill
+        async function completeVanRefill(atmId, replenishId) {
+            playBeep(880, 0.15);
+            try {
+                const res = await fetch('/api/cash-replenishment/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ atm_id: parseInt(atmId), replenishment_id: parseInt(replenishId) })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(1040, 0.25);
+                    showSimCashNotice(data.message, '#10b981');
+                    fetchCashForecast();
+                    updateSqlLogs();
+                } else {
+                    showSimCashNotice(`⚠️ ${data.message}`, '#f59e0b');
+                }
+            } catch (err) {
+                showSimCashNotice(`❌ Refill completion failed: ${err.message}`, '#ef4444');
+            }
+        }
+
+        // Trigger Cash Drain / Rush Simulation
+        async function triggerCashSim(scenario) {
+            const select = document.getElementById('simCashAtmSelect');
+            const atmId = select ? select.value : 1;
+            const resultBox = document.getElementById('simCashResultBox');
+            const content = document.getElementById('simCashResultContent');
+
+            resultBox.style.display = 'block';
+            resultBox.style.borderLeftColor = '#38bdf8';
+            content.innerHTML = `⏳ Simulating high-traffic cash depletion on ATM terminal #${atmId}...`;
+
+            try {
+                const res = await fetch('/api/cash-replenishment/simulate-rush', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atm_id: parseInt(atmId),
+                        scenario: scenario
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(320, 0.25);
+                    resultBox.style.borderLeftColor = data.safety_threshold_breached ? '#ef4444' : '#f59e0b';
+                    content.innerHTML = `
+                        <div style="color: #f8fafc; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">
+                            ⚡ ${data.scenario} EXECUTED ON ${data.terminal_code} (${data.city})
+                        </div>
+                        <div style="font-size: 0.82rem; color: #cbd5e1; margin-bottom: 0.35rem;">
+                            Vault Cash: <strong>₹${data.cash_before.toLocaleString('en-IN')}</strong> ➔ <strong style="color: #f87171;">₹${data.cash_after.toLocaleString('en-IN')}</strong> (-₹${data.drain_amount.toLocaleString('en-IN')}) | 
+                            Depletion Velocity Spiked To: <strong style="color: #38bdf8;">₹${data.new_daily_burn.toLocaleString('en-IN')}/day</strong>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8;">
+                            Days to Stockout: <strong style="color: ${data.days_to_stockout <= 0.5 ? '#f87171' : '#fbbf24'};">${data.days_to_stockout} days (${data.hours_to_stockout}h)</strong> | 
+                            Safety Threshold: ${data.safety_threshold_breached ? '<span style="color: #f87171; font-weight: 700;">🚨 BREACHED! Emergency Reorder Triggered</span>' : '<span style="color: #10b981; font-weight: 700;">Within Safety Limits</span>'}
+                        </div>
+                        ${data.auto_dispatched ? `
+                            <div style="margin-top: 0.4rem; padding: 0.4rem 0.6rem; background: rgba(239, 68, 68, 0.15); border-radius: 6px; color: #fca5a5; font-size: 0.78rem;">
+                                🚚 <strong>CLOSED-LOOP INVENTORY AUTOMATION:</strong> Armored Van <code>${data.van_order.van}</code> auto-dispatched with ₹${data.van_order.amount.toLocaleString('en-IN')} top-up!
+                            </div>
+                        ` : ''}
+                    `;
+
+                    fetchCashForecast();
+                    updateSqlLogs();
+                } else {
+                    resultBox.style.borderLeftColor = '#f59e0b';
+                    content.innerHTML = `⚠️ Simulation notice: ${data.message}`;
+                }
+            } catch (err) {
+                resultBox.style.borderLeftColor = '#ef4444';
+                content.innerHTML = `❌ Simulation failed: ${err.message}`;
+            }
+        }
+
+        function showSimCashNotice(msg, color = '#38bdf8') {
+            const resultBox = document.getElementById('simCashResultBox');
+            const content = document.getElementById('simCashResultContent');
+            if (!resultBox || !content) return;
+            resultBox.style.display = 'block';
+            resultBox.style.borderLeftColor = color;
+            content.innerHTML = `<span style="color: ${color}; font-weight: 700;">${msg}</span>`;
         }
 
         // Global Keyboard Handler (Keys 0-9, Enter, Backspace, Escape)

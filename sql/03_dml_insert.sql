@@ -57,18 +57,18 @@ VALUES
 (510, 112, '4532789012345687', 'DEBIT', '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', '789', '2028-10-31', 500.00,  'BLOCKED', 3, '2023-10-10');
 
 -- ----------------------------------------------------------------------------
--- 4. Insert ATM Machines (with Geolocation Coordinates)
+-- 4. Insert ATM Machines (with Geolocation Coordinates & Cash Inventory Rules)
 -- ----------------------------------------------------------------------------
-INSERT INTO atm_machines (atm_id, terminal_code, branch_name, location_address, city, latitude, longitude, cash_capacity, current_cash_level, status, last_serviced_date)
+INSERT INTO atm_machines (atm_id, terminal_code, branch_name, location_address, city, latitude, longitude, cash_capacity, current_cash_level, min_threshold_level, daily_burn_rate, status, last_serviced_date)
 VALUES
-(1, 'ATM-MUM-01', 'Nariman Point Flagship', '100 Marine Drive',        'Mumbai',    18.9256, 72.8242, 75000.00, 48200.00, 'ONLINE',      '2024-02-01'),
-(2, 'ATM-DEL-01', 'Connaught Place Hub',   'Block A, Connaught Place','New Delhi', 28.6315, 77.2167, 80000.00, 31400.00, 'ONLINE',      '2024-02-05'),
-(3, 'ATM-BLR-01', 'MG Road Branch',        '500 MG Road',              'Bengaluru', 12.9756, 77.6066, 60000.00, 52000.00, 'ONLINE',      '2024-01-28'),
-(4, 'ATM-KOL-01', 'Park Street Branch',     '230 Park Street',          'Kolkata',   22.5512, 88.3526, 65000.00, 21900.00, 'ONLINE',      '2024-02-10'),
-(5, 'ATM-HYD-01', 'Banjara Hills Branch',   'Road No. 1, Banjara Hills','Hyderabad', 17.4156, 78.4357, 50000.00, 12500.00, 'ONLINE',      '2024-02-11'),
-(6, 'ATM-CHE-01', 'Anna Salai Terminal',    '102 Anna Salai',           'Chennai',   13.0604, 80.2496, 50000.00, 45000.00, 'ONLINE',      '2024-01-15'),
-(7, 'ATM-PUN-01', 'FC Road Terminal',       '700 FC Road',              'Pune',      18.5204, 73.8418, 40000.00, 1500.00,  'OUT_OF_CASH', '2024-02-12'),
-(8, 'ATM-AMD-01', 'SG Highway Branch',      '1111 SG Highway',          'Ahmedabad', 23.0338, 72.5073, 70000.00, 0.00,      'MAINTENANCE', '2024-02-08');
+(1, 'ATM-MUM-01', 'Nariman Point Flagship', '100 Marine Drive',        'Mumbai',    18.9256, 72.8242, 75000.00, 48200.00, 20000.00, 12000.00, 'ONLINE',      '2024-02-01'),
+(2, 'ATM-DEL-01', 'Connaught Place Hub',   'Block A, Connaught Place','New Delhi', 28.6315, 77.2167, 80000.00, 31400.00, 25000.00, 15000.00, 'ONLINE',      '2024-02-05'),
+(3, 'ATM-BLR-01', 'MG Road Branch',        '500 MG Road',              'Bengaluru', 12.9756, 77.6066, 60000.00, 52000.00, 15000.00,  8000.00, 'ONLINE',      '2024-01-28'),
+(4, 'ATM-KOL-01', 'Park Street Branch',     '230 Park Street',          'Kolkata',   22.5512, 88.3526, 65000.00, 21900.00, 20000.00, 11000.00, 'ONLINE',      '2024-02-10'),
+(5, 'ATM-HYD-01', 'Banjara Hills Branch',   'Road No. 1, Banjara Hills','Hyderabad', 17.4156, 78.4357, 50000.00, 12500.00, 15000.00,  9000.00, 'ONLINE',      '2024-02-11'),
+(6, 'ATM-CHE-01', 'Anna Salai Terminal',    '102 Anna Salai',           'Chennai',   13.0604, 80.2496, 50000.00, 45000.00, 15000.00,  6000.00, 'ONLINE',      '2024-01-15'),
+(7, 'ATM-PUN-01', 'FC Road Terminal',       '700 FC Road',              'Pune',      18.5204, 73.8418, 40000.00,  1500.00, 12000.00,  7000.00, 'OUT_OF_CASH', '2024-02-12'),
+(8, 'ATM-AMD-01', 'SG Highway Branch',      '1111 SG Highway',          'Ahmedabad', 23.0338, 72.5073, 70000.00,     0.00, 20000.00,  8000.00, 'MAINTENANCE', '2024-02-08');
 
 -- ----------------------------------------------------------------------------
 -- 5. Insert Transactions (Ledger of Deposits, Withdrawals, Transfers & Inquiries)
@@ -94,7 +94,19 @@ VALUES
 (1017, 101, 103,  NULL, 'TRANSFER',       250.00, 3200.50, 'SUCCESS', 'Inter-account transfer to Priya Patel', '2024-02-10 12:00:00'),
 (1018, 103, 101,  NULL, 'TRANSFER',       250.00, 1850.75, 'SUCCESS', 'Transfer reimbursement received', '2024-02-10 12:05:00'),
 (1019, 106, NULL, 4, 'WITHDRAWAL',       1500.00,  920.00, 'FAILED',  'Declined: Amount exceeds card daily limit', '2024-02-11 14:10:00'),
-(1020, 112, NULL, 1, 'WITHDRAWAL',        200.00,  145.00, 'FAILED',  'Declined: Account is FROZEN & exceeded PIN', '2024-02-12 09:05:15');
+(1020, 112, NULL, 1, 'WITHDRAWAL',        200.00,  145.00, 'FAILED',  'Declined: Account is FROZEN & exceeded PIN', '2024-02-12 09:05:15'),
+(1021, 101, NULL, 1, 'WITHDRAWAL',        800.00, 2400.50, 'SUCCESS', 'Cash withdrawal at Mumbai Flagship', '2024-02-09 11:20:00'),
+(1022, 102, NULL, 1, 'WITHDRAWAL',        500.00, 14750.00,'SUCCESS', 'Cash withdrawal at Mumbai Flagship', '2024-02-10 15:45:00'),
+(1023, 104, NULL, 1, 'WITHDRAWAL',       1200.00, 5500.00, 'SUCCESS', 'Cash withdrawal at Mumbai Flagship', '2024-02-11 18:10:00'),
+(1024, 103, NULL, 2, 'WITHDRAWAL',        600.00, 1250.75, 'SUCCESS', 'Cash withdrawal at Connaught Place Hub', '2024-02-08 14:30:00'),
+(1025, 105, NULL, 2, 'WITHDRAWAL',       1500.00, 23000.25,'SUCCESS', 'Cash withdrawal at Connaught Place Hub', '2024-02-09 16:15:00'),
+(1026, 107, NULL, 2, 'WITHDRAWAL',        900.00, 3250.80, 'SUCCESS', 'Cash withdrawal at Connaught Place Hub', '2024-02-11 10:40:00'),
+(1027, 108, NULL, 3, 'WITHDRAWAL',        400.00, 8500.00, 'SUCCESS', 'Cash withdrawal at Bengaluru MG Road', '2024-02-08 09:15:00'),
+(1028, 110, NULL, 3, 'WITHDRAWAL',       1000.00, 44200.00,'SUCCESS', 'Cash withdrawal at Bengaluru MG Road', '2024-02-10 13:20:00'),
+(1029, 111, NULL, 4, 'WITHDRAWAL',        300.00, 2670.40, 'SUCCESS', 'Cash withdrawal at Kolkata Park Street', '2024-02-09 17:05:00'),
+(1030, 106, NULL, 4, 'WITHDRAWAL',        200.00,  720.00, 'SUCCESS', 'Cash withdrawal at Kolkata Park Street', '2024-02-10 12:40:00'),
+(1031, 107, NULL, 5, 'WITHDRAWAL',        500.00, 2750.80, 'SUCCESS', 'Cash withdrawal at Hyderabad Banjara Hills', '2024-02-09 11:50:00'),
+(1032, 108, NULL, 5, 'WITHDRAWAL',        700.00, 7800.00, 'SUCCESS', 'Cash withdrawal at Hyderabad Banjara Hills', '2024-02-10 16:35:00');
 
 -- ----------------------------------------------------------------------------
 -- 6. Insert Fraud Alerts (Historical Security & Impossible Travel Incidents)
@@ -103,3 +115,13 @@ INSERT INTO fraud_alerts (alert_id, transaction_id, card_id, account_id, alert_t
 VALUES
 (1, 1020, 510, 112, 'GEO_VELOCITY_IMPOSSIBLE_TRAVEL', 'CRITICAL', 98, 5, 1, 620.00, 15.00, 2480.00, 'CARD_AUTO_LOCKED', 'Impossible transit: Card swiped at Hyderabad ATM then 15 mins later at Mumbai ATM (speed: 2,480 km/h). Auto-locked.', '2024-02-12 09:05:15'),
 (2, NULL, 505, 106, 'RAPID_FREQUENCY_BURST', 'HIGH', 82, 4, 4, 0.00, 1.50, 0.00, 'TRANSACTION_BLOCKED', 'Rapid withdrawal burst: 3 consecutive max-limit attempts within 90 seconds at Kolkata Park Street.', '2024-02-11 14:10:00');
+
+-- ----------------------------------------------------------------------------
+-- 7. Insert Cash Replenishments (Predictive Logistics & CIT Armored Van Orders)
+-- ----------------------------------------------------------------------------
+INSERT INTO cash_replenishments (replenishment_id, atm_id, requested_amount, current_cash_at_request, burn_rate_at_request, estimated_days_left, urgency_level, status, cit_company, van_vehicle_number, dispatched_at, completed_at, created_at)
+VALUES
+(1, 7, 38500.00,  1500.00,  7000.00, 0.21, 'CRITICAL_STOCKOUT', 'IN_TRANSIT', 'SIS Prosegur Cash Logistics', 'MH-12-CV-4412', '2024-02-12 10:15:00', NULL,                  '2024-02-12 10:00:00'),
+(2, 5, 37500.00, 12500.00,  9000.00, 1.39, 'HIGH',              'DISPATCHED', 'CMS Info Systems CIT',        'TS-09-UB-8891', '2024-02-12 11:30:00', NULL,                  '2024-02-12 11:15:00'),
+(3, 1, 50000.00, 18000.00, 12000.00, 1.50, 'NORMAL',            'COMPLETED',  'SecureCorp India CIT',        'MH-01-CV-7890', '2024-02-01 07:00:00', '2024-02-01 09:30:00', '2024-02-01 06:45:00');
+

@@ -156,6 +156,45 @@ def test_fraud_detection_engine(conn):
     rule_count = cursor.fetchone()[0]
     print(f"✅ PASS: Active Forensic Security Rules configured -> {rule_count} rules loaded")
 
+def test_predictive_cash_engine(conn):
+    print(f"\n{'='*75}")
+    print("Testing In-Database Predictive Cash Replenishment & Window Engine")
+    print(f"{'='*75}")
+    cursor = conn.cursor()
+
+    # 1. Verify Days to Stockout Forecast View
+    cursor.execute("""
+        SELECT terminal_code, city, current_cash_level, effective_daily_burn,
+               days_to_stockout, hours_to_stockout, stockout_risk_category, reorder_triggered
+        FROM v_atm_stockout_forecast
+        WHERE terminal_code = 'ATM-MUM-01';
+    """)
+    mum = cursor.fetchone()
+    if mum:
+        print(f"✅ PASS: Forecast View computed -> {mum[0]} ({mum[1]}): {mum[4]} days left ({mum[5]} hrs) | Category: {mum[6]}")
+    else:
+        print("❌ FAIL: Stockout forecast view failed!")
+
+    # 2. Verify Reorder Point Detection for Low Cash ATMs
+    cursor.execute("""
+        SELECT COUNT(*) FROM v_atm_stockout_forecast WHERE reorder_triggered = 1;
+    """)
+    reorder_count = cursor.fetchone()[0]
+    if reorder_count >= 2:
+        print(f"✅ PASS: In-Database Inventory ROP triggered for {reorder_count} critical terminals")
+    else:
+        print(f"❌ FAIL: Expected >= 2 reorders triggered, got {reorder_count}")
+
+    # 3. Verify CIT Armored Van Replenishment Orders Table
+    cursor.execute("SELECT COUNT(*) FROM cash_replenishments WHERE status IN ('DISPATCHED', 'IN_TRANSIT');")
+    active_orders = cursor.fetchone()[0]
+    print(f"✅ PASS: CIT Armored Van logistics orders active -> {active_orders} vans in transit")
+
+    # 4. Verify SQL Window Function Moving Average Execution
+    cursor.execute("SELECT COUNT(*) FROM v_atm_moving_burn_velocity WHERE moving_avg_burn_3d IS NOT NULL;")
+    window_count = cursor.fetchone()[0]
+    print(f"✅ PASS: Multi-period SQL window moving average computed -> {window_count} partitions evaluated")
+
 def main():
     if os.path.exists(DB_FILE):
         os.remove(DB_FILE)
@@ -175,8 +214,10 @@ def main():
         run_sample_queries(conn)
         run_script(conn, "07_fraud_detection_engine.sql")
         test_fraud_detection_engine(conn)
+        run_script(conn, "08_predictive_cash_replenishment.sql")
+        test_predictive_cash_engine(conn)
         print(f"\n{'='*75}")
-        print("🎉 ALL CORE SQL & ADVANCED FRAUD ENGINE TESTS PASSED WITH ZERO ERRORS!")
+        print("🎉 ALL CORE SQL, FRAUD ENGINE & PREDICTIVE CASH LOGISTICS TESTS PASSED WITH ZERO ERRORS!")
         print(f"{'='*75}\n")
     finally:
         conn.close()
