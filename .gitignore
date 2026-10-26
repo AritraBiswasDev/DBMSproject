@@ -1,4 +1,49 @@
-/docs
+# ==============================================================================
+# Git Ignore Configuration - Simple ATM Management System
+# ==============================================================================
+
+# Reports, Presentations & Media
+*.docx
+*.pdf
 *.pptx
+*.png
+*.jpg
+*.jpeg
+*.svg
+/docs
+/scratch
+
+# Microsoft Office & System Temporary / Lock Files
+~$*
+~*
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Operating System Files
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Python & Virtual Environments
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.log
+venv/
+.venv/
+env/
+ENV/
+.env
+
+# Editor & IDE Directories
+.vscode/
+.idea/
+
+# SQLite Temporary / Journal Files
+*.db-journal
+*.db-wal
+*.db-shm

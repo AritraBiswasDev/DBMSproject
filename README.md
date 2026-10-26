@@ -41,19 +41,20 @@ DBMSproject/
 │   ├── REVIEW_1_CASE_STUDY_REPORT.md      # Comprehensive academic report for Review 1
 │   └── REVIEW_1_PRESENTATION_GUIDE.md     # Slide deck outline, speaker notes & viva defense Q&A
 ├── scripts/
-│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application with Fraud & Cash Radars
-│   └── test_runner.py                     # Automated Python test runner (verifies 8 SQL scripts, fraud & cash engines)
+│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application with Fraud, Cash & Ledger Radars
+│   └── test_runner.py                     # Automated Python test runner (verifies 9 SQL scripts, fraud, cash & tamper engines)
 ├── sql/
-│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints, fraud_alerts & cash_replenishments
+│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints, fraud_alerts, cash_replenishments & ledger_tamper_log
 │   ├── 02_ddl_alter_drop.sql              # Schema evolution (ALTER, RENAME, DROP operations)
-│   ├── 03_dml_insert.sql                  # Realistic Indian seed dataset with ATM GPS coordinates & cash thresholds
+│   ├── 03_dml_insert.sql                  # Realistic Indian seed dataset with cryptographic SHA-256 Merkle hash chain
 │   ├── 04_dml_update_delete.sql           # Balance updates, card locks, safe delete & soft deletes
 │   ├── 05_single_row_functions.sql        # String (PCI-DSS masking), Math, Date, CASE, COALESCE
 │   ├── 06_operators_and_group_functions.sql# Operators, COUNT, SUM, AVG, GROUP BY & HAVING
 │   ├── 07_fraud_detection_engine.sql      # Novel in-database Geo-Velocity & window function fraud engine
-│   └── 08_predictive_cash_replenishment.sql# Novel predictive cash depletion velocity & CIT logistics engine
+│   ├── 08_predictive_cash_replenishment.sql# Novel predictive cash depletion velocity & CIT logistics engine
+│   └── 09_cryptographic_tamper_ledger.sql # Novel in-database cryptographic Merkle hash chain & pure SQL window verification
 └── templates/
-    └── index.html                         # ATM Simulator, Bank Admin, Fraud Radar & Cash Logistics Web UI
+    └── index.html                         # ATM Simulator, Bank Admin, Fraud Radar, Cash Logistics & Cryptographic Ledger Web UI
 ```
 
 ---
@@ -142,16 +143,62 @@ When an ATM terminal drops below its safety stock threshold, the database automa
 
 ---
 
+## ⛓️ Project Novelty 3: In-Database Cryptographic Tamper-Proof Audit Ledger (Blockchain Hash Chaining in SQL)
+
+In traditional database management systems, a critical security vulnerability is the **"Rogue DBA / Insider Threat"** problem. A privileged user with `UPDATE` permissions (or a malicious SQL injection attacker) can silently modify financial ledgers—altering transaction amounts or account balances—without leaving traces in the data rows themselves.
+
+To solve this, this project embeds **Blockchain Merkle Hash Chaining directly into pure relational SQL**:
+
+### 1. Mathematical Architecture: Deterministic SHA-256 Hash Chaining
+Every transaction row stores two cryptographic attributes:
+* `prev_hash`: The SHA-256 cryptographic digest of its immediate predecessor row.
+* `entry_hash`: A deterministic SHA-256 digest computed across the entire row payload + `prev_hash`:
+
+$$\text{Payload} = \text{tx\_id} \,\|\, \text{acc\_id} \,\|\, \text{dest\_acc} \,\|\, \text{atm\_id} \,\|\, \text{tx\_type} \,\|\, \text{amount} \,\|\, \text{balance\_after} \,\|\, \text{status} \,\|\, \text{timestamp} \,\|\, \text{prev\_hash}$$
+$$\text{entry\_hash} = \text{SHA256}(\text{Payload})$$
+
+* **Genesis Block (1001) Anchor:** Anchored cryptographically with 64 zeros:  
+  `0000000000000000000000000000000000000000000000000000000000000000`
+
+### 2. Pure SQL Window Verification (`LAG()` Analytic Function)
+Integrity verification does not require costly table scans or external blockchain nodes. The database validates its own cryptographic continuity using SQL window functions:
+
+```sql
+SELECT
+    transaction_id,
+    amount,
+    prev_hash,
+    entry_hash,
+    LAG(entry_hash, 1, '0000...0000') OVER (ORDER BY transaction_id) AS expected_prev_hash,
+    CASE
+        WHEN prev_hash = LAG(entry_hash, 1, '0000...0000') OVER (ORDER BY transaction_id)
+        THEN 'VALID_BLOCK'
+        ELSE 'TAMPERED_BROKEN_CHAIN'
+    END AS chain_integrity_status
+FROM transactions;
+```
+
+### 3. Rogue DBA Attack Simulation & Forensic Audit Trail
+* **Attack Scenario:** If an unauthorized actor executes:
+  ```sql
+  UPDATE transactions SET amount = 9999.00 WHERE transaction_id = 1002;
+  ```
+  The row payload changes, invalidating Block #1002's stored hash. Consequently, Block #1003's `prev_hash` no longer matches the expected hash, breaking the entire downstream chain.
+* **Forensic Detection & Logging:** The anomaly is instantly detected by `v_cryptographic_ledger` and logged into `ledger_tamper_log` with incident details and forensic timestamps.
+* **1-Click Resealing:** A cryptographically verified restoration procedure reverts the alteration and reseals the hash chain.
+
+---
+
 ## 🎮 Interactive Simulation (Web GUI & Terminal CLI)
 
 ### Option A: Interactive Web ATM GUI (Recommended for Presentations)
-Launch the graphical browser-based ATM simulator, Bank Admin Portal, Fraud Radar, and Cash Logistics Console:
+Launch the graphical browser-based ATM simulator, Bank Admin Portal, Fraud Radar, Cash Logistics Console, and Cryptographic Ledger Explorer:
 
 ```bash
 python app.py
 ```
 * **URL:** Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your web browser.
-* **Four Dedicated System Views:**
+* **Five Dedicated System Views:**
   1. 🏧 **ATM Terminal**: Realistic enclosure, physical location terminal selector, sound effects, card reader, PIN authentication, cash withdrawal, deposit, transfer, mini-statement, and thermal receipt generation.
   2. 🏛️ **Bank Admin & Analytics**: Fleet monitor of all 8 Indian ATM terminals, manual cash replenishment, card unblocking, and aggregate financial metrics.
   3. 🛡️ **Fraud & Geo-Velocity Radar**:
@@ -163,7 +210,12 @@ python app.py
      * **Interactive Festive Cash Drain Sandbox**: 1-click triggers for *Diwali Shopping Rush (-₹28,000)*, *Payday Cash Drain (-₹20,000)*, and *Weekend Entertainment Spike (-₹15,000)*.
      * **Fleet Depletion Radar Grid**: 8 terminal cards with depletion countdown clocks (`⏳ 4.0 Days Left (96.4h)`), animated utilization bars, and "🚚 Dispatch CIT Armored Van" triggers.
      * **Live CIT Armored Van Manifest**: Table tracking orders, armored vehicles, logistics partners, and 1-click delivery completion.
-  5. ⚡ **Live SQL Query Inspector**: Fixed footer showing the exact SQL queries executed in real-time.
+  5. ⛓️ **Cryptographic Tamper Ledger**:
+     * **Chain Health KPI Grid**: Total blocks, verified blocks, corrupted blocks, and 100% integrity score.
+     * **Rogue DBA Attack Sandbox**: Target block picker, unauthorized amount input, 1-click *Execute Rogue DBA Tamper*, and *Restore & Reseal Chain*.
+     * **Visual Blockchain Block Explorer**: Sequential chained blocks with visual Merkle link status, expandable payload signatures, and color-coded status.
+     * **Forensic Audit Log Table**: Live entries from `ledger_tamper_log`.
+  6. ⚡ **Live SQL Query Inspector**: Fixed footer showing the exact SQL queries executed in real-time.
 
 ---
 
@@ -173,7 +225,7 @@ Run the interactive ATM application directly in your terminal console:
 ```bash
 python scripts/interactive_cli.py
 ```
-* Interactive menus, sample card picker, PIN authentication, cash withdrawals with real-time fraud evaluation, option `[T]` to switch physical ATM cities, option `[F]` for the **Fraud & Geo-Velocity Radar**, and option `[P]` for the **Predictive Cash & Logistics Radar**.
+* Interactive menus, sample card picker, PIN authentication, cash withdrawals with real-time fraud evaluation, option `[T]` to switch physical ATM cities, option `[F]` for the **Fraud & Geo-Velocity Radar**, option `[P]` for the **Predictive Cash & Logistics Radar**, and option `[L]` for the **Cryptographic Tamper Ledger & Radar**.
 
 ---
 
@@ -186,7 +238,7 @@ python scripts/test_runner.py
 ```
 
 ### Expected Output Summary:
-* Executes all 8 SQL scripts in proper sequence (`01_ddl_create.sql` through `08_predictive_cash_replenishment.sql`).
+* Executes all 9 SQL scripts in proper sequence (`01_ddl_create.sql` through `09_cryptographic_tamper_ledger.sql`).
 * Runs **Integrity Constraint Tests** and proves that the database blocks:
   * ❌ Negative balances (`CHECK balance >= 0.00`)
   * ❌ Duplicate email addresses (`UNIQUE`)
@@ -204,6 +256,11 @@ python scripts/test_runner.py
   * ✅ Verifies automated Reorder Point (ROP) threshold detection on critical low-cash terminals.
   * ✅ Verifies active CIT armored security van dispatch orders in `cash_replenishments`.
   * ✅ Verifies multi-period SQL analytical window moving average burn velocity (`v_atm_moving_burn_velocity`).
+* **Cryptographic Tamper Ledger Test Suite:**
+  * ✅ Verifies Genesis Block #1001 anchored with 64-zero cryptographic seed.
+  * ✅ Verifies pure SQL Merkle window verification (`v_tamper_detection_summary`) at 100% integrity.
+  * ✅ Verifies real-time detection of simulated Rogue DBA tampering.
+  * ✅ Verifies forensic logging in `ledger_tamper_log` and chain restoration.
 
 ---
 

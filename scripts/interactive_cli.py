@@ -23,10 +23,11 @@ DB_FILE = os.path.join(BASE_DIR, "atm_system.db")
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 try:
-    from app import evaluate_fraud_risk, haversine_distance
+    from app import evaluate_fraud_risk, haversine_distance, insert_chained_transaction
 except ImportError:
     evaluate_fraud_risk = None
     haversine_distance = None
+    insert_chained_transaction = None
 
 # ANSI Color Codes
 CYAN = "\033[96m"
@@ -197,11 +198,14 @@ def check_balance(conn, card):
     cur.execute("SELECT balance, minimum_balance, account_number, account_type FROM accounts WHERE account_id = ?", (card["account_id"],))
     acc = cur.fetchone()
 
-    # Log balance inquiry in transactions table
-    cur.execute("""
-        INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-        VALUES (?, 1, 'BALANCE_INQUIRY', 0.00, ?, 'SUCCESS', 'Interactive Balance Inquiry via ATM');
-    """, (card["account_id"], acc["balance"]))
+    # Log balance inquiry into cryptographic ledger
+    if insert_chained_transaction:
+        insert_chained_transaction(cur, card["account_id"], None, 1, 'BALANCE_INQUIRY', 0.00, acc["balance"], 'SUCCESS', 'Interactive Balance Inquiry via ATM')
+    else:
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
+            VALUES (?, 1, 'BALANCE_INQUIRY', 0.00, ?, 'SUCCESS', 'Interactive Balance Inquiry via ATM');
+        """, (card["account_id"], acc["balance"]))
     conn.commit()
 
     print(f"\n{CYAN}--- ACCOUNT BALANCE INQUIRY ---{RESET}")
@@ -288,12 +292,15 @@ def withdraw_cash(conn, card):
         # 2. Deduct physical cash from ATM
         cur.execute("UPDATE atm_machines SET current_cash_level = current_cash_level - ? WHERE atm_id = ?;", (amt, CURRENT_ATM["id"]))
         
-        # 3. Log transaction ledger
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Dispense', ?);
-        """, (card["account_id"], CURRENT_ATM["id"], amt, new_balance, now_str))
-        tx_id = cur.lastrowid
+        # 3. Log transaction ledger into cryptographic chain
+        if insert_chained_transaction:
+            tx_id, _, _ = insert_chained_transaction(cur, card["account_id"], None, CURRENT_ATM["id"], 'WITHDRAWAL', amt, new_balance, 'SUCCESS', 'Interactive ATM Cash Dispense', now_str)
+        else:
+            cur.execute("""
+                INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+                VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Dispense', ?);
+            """, (card["account_id"], CURRENT_ATM["id"], amt, new_balance, now_str))
+            tx_id = cur.lastrowid
 
         conn.commit()
         print(f"\n{GREEN}💵 [CHING!] Cash Dispensed: ₹{amt:,.2f}. Please collect your cash!{RESET}")
@@ -328,12 +335,15 @@ def deposit_cash(conn, card):
         # 2. Increase ATM cash
         cur.execute("UPDATE atm_machines SET current_cash_level = current_cash_level + ? WHERE atm_id = 1;", (amt,))
 
-        # 3. Record transaction
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, 1, 'DEPOSIT', ?, ?, 'SUCCESS', 'Interactive ATM Cash Deposit');
-        """, (card["account_id"], amt, new_balance))
-        tx_id = cur.lastrowid
+        # 3. Record transaction into cryptographic chain
+        if insert_chained_transaction:
+            tx_id, _, _ = insert_chained_transaction(cur, card["account_id"], None, 1, 'DEPOSIT', amt, new_balance, 'SUCCESS', 'Interactive ATM Cash Deposit')
+        else:
+            cur.execute("""
+                INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
+                VALUES (?, 1, 'DEPOSIT', ?, ?, 'SUCCESS', 'Interactive ATM Cash Deposit');
+            """, (card["account_id"], amt, new_balance))
+            tx_id = cur.lastrowid
 
         conn.commit()
         print(f"\n{GREEN}✅ Deposit Successful! ₹{amt:,.2f} credited to your account.{RESET}")
@@ -414,12 +424,15 @@ def transfer_funds(conn, card):
         # 2. Credit receiver
         cur.execute("UPDATE accounts SET balance = ? WHERE account_id = ?;", (new_dest_bal, dest_acc["account_id"]))
 
-        # 3. Record sender transaction ledger
-        cur.execute("""
-            INSERT INTO transactions (account_id, dest_account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, ?, 1, 'TRANSFER', ?, ?, 'SUCCESS', ?);
-        """, (card["account_id"], dest_acc["account_id"], amt, new_sender_bal, f"Transfer sent to {dest_acc_num}"))
-        tx_id = cur.lastrowid
+        # 3. Record sender transaction into cryptographic chain
+        if insert_chained_transaction:
+            tx_id, _, _ = insert_chained_transaction(cur, card["account_id"], dest_acc["account_id"], 1, 'TRANSFER', amt, new_sender_bal, 'SUCCESS', f"Transfer sent to {dest_acc_num}")
+        else:
+            cur.execute("""
+                INSERT INTO transactions (account_id, dest_account_id, atm_id, transaction_type, amount, balance_after, status, description)
+                VALUES (?, ?, 1, 'TRANSFER', ?, ?, 'SUCCESS', ?);
+            """, (card["account_id"], dest_acc["account_id"], amt, new_sender_bal, f"Transfer sent to {dest_acc_num}"))
+            tx_id = cur.lastrowid
 
         conn.commit()
         print(f"\n{GREEN}✅ Transfer of ₹{amt:,.2f} to {dest_acc_num} completed successfully!{RESET}")
@@ -754,6 +767,110 @@ def predictive_cash_cli(conn):
         elif choice == "0":
             break
 
+def cryptographic_ledger_cli(conn):
+    while True:
+        print(f"\n{CYAN}{BOLD}═══════════════════════════════════════════════════════════════════════════════")
+        print("  ⛓️  IN-DATABASE CRYPTOGRAPHIC TAMPER LEDGER & MERKLE HASH RADAR (DBMS NOVELTY)  ")
+        print("═══════════════════════════════════════════════════════════════════════════════{RESET}")
+        print("  [1] 📜 View Recent Blockchain Blocks & Cryptographic Hash Chain")
+        print("  [2] 🔍 Run 100% In-Database Cryptographic Integrity Audit Scan")
+        print("  [3] ⚡ Simulate Rogue DBA Unauthorized Payload Tamper (Block #1002)")
+        print("  [4] 🛡️ Restore Genuine State & Reseal Cryptographic Hash Chain")
+        print("  [5] 📋 View Forensic Tamper Incident Log (ledger_tamper_log)")
+        print("  [0] ⬅️  Back to Main Menu")
+
+        choice = input(f"\n{BOLD}Select Ledger Option (0-5) > {RESET}").strip()
+
+        if choice == "1":
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT transaction_id, account_id, transaction_type, amount, balance_after,
+                       status, prev_hash, entry_hash
+                FROM transactions
+                ORDER BY transaction_id DESC
+                LIMIT 15;
+            """)
+            rows = cur.fetchall()
+            print(f"\n{'Block':<7} {'Account':<9} {'Type':<16} {'Amount':<12} {'Prev Hash (SHA-256)':<24} {'Entry Hash (SHA-256)':<24}")
+            print("-" * 95)
+            for r in reversed(rows):
+                p_short = f"{r['prev_hash'][:8]}...{r['prev_hash'][-6:]}"
+                e_short = f"{r['entry_hash'][:8]}...{r['entry_hash'][-6:]}"
+                print(f"#{r['transaction_id']:<6} #{r['account_id']:<8} {r['transaction_type']:<16} ₹{r['amount']:<11,.2f} {DIM}{p_short:<24} {e_short:<24}{RESET}")
+
+        elif choice == "2":
+            try:
+                from app import app
+                client = app.test_client()
+                res = client.get("/api/ledger/verify")
+                data = res.get_json()
+                if data.get("is_intact"):
+                    print(f"\n{GREEN}{BOLD}✅ AUDIT PASSED:{RESET} {data['message']}")
+                    print(f"  • Total Blocks Audited: {data['total_blocks_audited']}")
+                    print(f"  • Corrupted Blocks:     0 (100% SHA-256 Merkle Chain Integrity)")
+                else:
+                    print(f"\n{RED}{BOLD}🚨 AUDIT FAILURE - TAMPERING DETECTED!{RESET}")
+                    print(f"  • {data['message']}")
+                    for b in data.get("broken_blocks", []):
+                        print(f"    - Block #{b['block_id']} ({b['type']} ₹{b['amount']:,.2f}): {b['issue']}")
+                        print(f"      Stored:       {b['stored_entry_hash'][:20]}...")
+                        print(f"      Recalculated: {b['recalculated_hash'][:20]}...")
+            except Exception as e:
+                print(f"\n{RED}Audit error: {e}{RESET}")
+
+        elif choice == "3":
+            try:
+                from app import app
+                client = app.test_client()
+                res = client.post("/api/ledger/simulate-tamper", json={"transaction_id": 1002, "amount": 9999.00})
+                data = res.get_json()
+                if data.get("success"):
+                    print(f"\n{YELLOW}{BOLD}⚡ ATTACK SIMULATION TRIGGERED:{RESET}")
+                    print(f"  • {data['message']}")
+                    print(f"  • Block #{data['block_id']}: ₹{data['original_amount']:,.2f} ➔ ₹{data['tampered_amount']:,.2f}")
+                    print(f"  • Stored Hash:       {data['stored_hash'][:20]}...")
+                    print(f"  • Recalculated Hash: {data['recalculated_hash'][:20]}...")
+                    print(f"\n{CYAN}👉 Run Option [2] now to see in-database detection in action!{RESET}")
+                else:
+                    print(f"\n{RED}Simulation failed: {data.get('message')}{RESET}")
+            except Exception as e:
+                print(f"\n{RED}Simulation error: {e}{RESET}")
+
+        elif choice == "4":
+            try:
+                from app import app
+                client = app.test_client()
+                res = client.post("/api/ledger/restore", json={"transaction_id": 1002})
+                data = res.get_json()
+                if data.get("success"):
+                    print(f"\n{GREEN}{BOLD}🛡️ RESTORATION & RESEALING COMPLETE:{RESET}")
+                    print(f"  • {data['message']}")
+                    print(f"  • Block #{data['restored_block']} restored to ₹{data['restored_amount']:,.2f}")
+                    print(f"  • Status: {GREEN}{data['status']}{RESET}")
+                else:
+                    print(f"\n{RED}Restore failed: {data.get('message')}{RESET}")
+            except Exception as e:
+                print(f"\n{RED}Restore error: {e}{RESET}")
+
+        elif choice == "5":
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT log_id, tampered_transaction_id, tamper_severity, action_taken, incident_details, detected_at
+                FROM ledger_tamper_log
+                ORDER BY log_id DESC
+                LIMIT 10;
+            """)
+            logs = cur.fetchall()
+            print(f"\n{'Log ID':<8} {'Block':<8} {'Severity':<12} {'Action':<24} {'Timestamp':<20}")
+            print("-" * 80)
+            for l in logs:
+                sev_color = RED if l["tamper_severity"] == "CRITICAL" else YELLOW
+                print(f"#{l['log_id']:<7} #{l['tampered_transaction_id']:<7} {sev_color}{l['tamper_severity']:<12}{RESET} {l['action_taken']:<24} {l['detected_at']}")
+                print(f"  {DIM}Details: {l['incident_details'][:100]}...{RESET}")
+
+        elif choice == "0":
+            break
+
 def main():
     conn = get_db()
     banner()
@@ -777,10 +894,11 @@ def main():
             print("  [T] 📍 Switch Physical ATM Terminal Location")
             print("  [P] 🚚 Predictive Cash & Logistics Radar")
             print("  [F] 🛡️ Real-Time Fraud & Geo-Velocity Radar")
+            print("  [L] ⛓️ Cryptographic Ledger & Tamper Radar")
             print("  [A] 🏛️ Bank Administration Dashboard")
             print("  [0] ⏏️  Eject Card / Exit")
 
-            choice = input(f"\n{BOLD}Enter option (0-6, T, P, F, A) > {RESET}").strip()
+            choice = input(f"\n{BOLD}Enter option (0-6, T, P, F, L, A) > {RESET}").strip()
 
             if choice == "1":
                 check_balance(conn, card)
@@ -800,13 +918,15 @@ def main():
                 predictive_cash_cli(conn)
             elif choice.upper() == "F":
                 fraud_radar_cli(conn)
+            elif choice.upper() == "L":
+                cryptographic_ledger_cli(conn)
             elif choice.upper() == "A":
                 admin_dashboard(conn)
             elif choice == "0":
                 print(f"\n{GREEN}⏏️  Card ejected. Please take your card. Thank you!{RESET}\n")
                 break
             else:
-                print(f"{RED}Invalid option. Please choose between 0-6, T, P, F, A.{RESET}")
+                print(f"{RED}Invalid option. Please choose between 0-6, T, P, F, L, A.{RESET}")
 
 if __name__ == "__main__":
     main()
