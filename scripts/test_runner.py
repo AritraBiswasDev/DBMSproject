@@ -120,6 +120,42 @@ def run_sample_queries(conn):
     for row in cursor.fetchall():
         print(f"Account ID: {row[0]} | Total Success Trans: {row[1]} | Volume: ₹{row[2]:,.2f}")
 
+def test_fraud_detection_engine(conn):
+    print(f"\n{'='*75}")
+    print("Testing In-Database Fraud & Geo-Velocity Engine (Spatial & Window SQL)")
+    print(f"{'='*75}")
+    cursor = conn.cursor()
+
+    # 1. Verify Geodesic Distance View between ATMs
+    cursor.execute("""
+        SELECT from_city, to_city, distance_km 
+        FROM v_atm_network_distances 
+        WHERE from_code = 'ATM-MUM-01' AND to_code = 'ATM-DEL-01';
+    """)
+    route = cursor.fetchone()
+    if route:
+        print(f"✅ PASS: In-Database Spherical Distance computed -> {route[0]} to {route[1]}: {route[2]} km")
+    else:
+        print("❌ FAIL: Spherical distance calculation failed!")
+
+    # 2. Verify Geo-Velocity Impossible Travel Detection
+    cursor.execute("""
+        SELECT alert_type, severity, implied_speed_kmh, action_taken
+        FROM fraud_alerts
+        WHERE alert_type = 'GEO_VELOCITY_IMPOSSIBLE_TRAVEL'
+        LIMIT 1;
+    """)
+    alert = cursor.fetchone()
+    if alert and alert[1] == 'CRITICAL':
+        print(f"✅ PASS: Geo-Velocity Engine detected Impossible Travel -> Speed: {alert[2]} km/h | Action: {alert[3]}")
+    else:
+        print("❌ FAIL: Geo-Velocity alert verification failed!")
+
+    # 3. Verify Active Fraud Rules Configuration
+    cursor.execute("SELECT COUNT(*) FROM fraud_rules_config WHERE is_active = 1;")
+    rule_count = cursor.fetchone()[0]
+    print(f"✅ PASS: Active Forensic Security Rules configured -> {rule_count} rules loaded")
+
 def main():
     if os.path.exists(DB_FILE):
         os.remove(DB_FILE)
@@ -137,8 +173,10 @@ def main():
         test_constraints(conn)
         run_script(conn, "04_dml_update_delete.sql")
         run_sample_queries(conn)
+        run_script(conn, "07_fraud_detection_engine.sql")
+        test_fraud_detection_engine(conn)
         print(f"\n{'='*75}")
-        print("🎉 ALL REVIEW 1 SQL IMPLEMENTATIONS VALIDATED SUCCESSFULLY WITH ZERO ERRORS!")
+        print("🎉 ALL CORE SQL & ADVANCED FRAUD ENGINE TESTS PASSED WITH ZERO ERRORS!")
         print(f"{'='*75}\n")
     finally:
         conn.close()

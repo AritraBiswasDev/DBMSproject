@@ -35,49 +35,87 @@ This repository currently implements **Review 1 (10 Marks)** of the 30-Mark DBMS
 ```text
 DBMSproject/
 ├── README.md                              # Main project documentation & quickstart
-├── app.py                                 # Interactive Web GUI server (Flask + SQLite)
+├── app.py                                 # Interactive Web GUI server (Flask + SQLite + Fraud Engine)
 ├── atm_system.db                          # Normalized SQLite database file
 ├── docs/
 │   ├── REVIEW_1_CASE_STUDY_REPORT.md      # Comprehensive academic report for Review 1
 │   └── REVIEW_1_PRESENTATION_GUIDE.md     # Slide deck outline, speaker notes & viva defense Q&A
 ├── scripts/
-│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application
-│   └── test_runner.py                     # Automated Python script to test & verify all SQL operations
+│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application with Fraud Radar
+│   └── test_runner.py                     # Automated Python test runner (verifies 7 SQL scripts & fraud engine)
 ├── sql/
-│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints
+│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints & fraud_alerts
 │   ├── 02_ddl_alter_drop.sql              # Schema evolution (ALTER, RENAME, DROP operations)
-│   ├── 03_dml_insert.sql                  # Realistic seed dataset (10 customers, 12 accounts, etc.)
+│   ├── 03_dml_insert.sql                  # Realistic Indian seed dataset with ATM GPS coordinates
 │   ├── 04_dml_update_delete.sql           # Balance updates, card locks, safe delete & soft deletes
 │   ├── 05_single_row_functions.sql        # String (PCI-DSS masking), Math, Date, CASE, COALESCE
-│   └── 06_operators_and_group_functions.sql# Operators, COUNT, SUM, AVG, GROUP BY & HAVING
+│   ├── 06_operators_and_group_functions.sql# Operators, COUNT, SUM, AVG, GROUP BY & HAVING
+│   └── 07_fraud_detection_engine.sql      # Novel in-database Geo-Velocity & window function fraud engine
 └── templates/
-    └── index.html                         # Interactive Web ATM Simulator & Admin Console UI
+    └── index.html                         # ATM Simulator, Bank Admin & Fraud Radar Web UI
 ```
 
 ---
 
-## 🎮 Interactive ATM Simulation (2 Ways to Run)
+## 🛡️ Project Novelty: In-Database Real-Time Fraud & Geo-Velocity Radar
 
-The system includes two interactive modes for live presentations, evaluations, and grading:
+To exceed standard academic ATM implementations, this project introduces a **Real-Time In-Database Fraud & Geo-Velocity Detection Engine**. Rather than treating the relational database as a dumb store, advanced relational constructs, spherical mathematics, and temporal window functions execute directly inside the SQL engine.
+
+### 1. Mathematical Architecture: Great-Circle Haversine Trigonometry
+Every ATM terminal stores its exact latitude and longitude:
+* **Nariman Point, Mumbai:** $18.9256^\circ\text{ N}, 72.8242^\circ\text{ E}$
+* **Connaught Place, New Delhi:** $28.6315^\circ\text{ N}, 77.2167^\circ\text{ E}$
+* **Distance:** $1,167.81\text{ km}$
+
+The physical distance between any two consecutive card swipes is computed in pure SQL using spherical trigonometry:
+$$d = 2R \cdot \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\cos\phi_2\sin^2\left(\frac{\Delta\lambda}{2}\right)}\right)$$
+$$\text{Velocity } (v) = \frac{\Delta d\text{ (km)}}{\Delta t\text{ (hours)}}$$
+
+* **Rule BR-08 (Impossible Travel Threshold):** If calculated velocity exceeds **$500\text{ km/h}$**, physical human transit between terminals is impossible without supersonic aviation. The database identifies card cloning, triggers an automated ACID rollback, logs a `CRITICAL` breach in `fraud_alerts`, and auto-locks the card (`cards.status = 'BLOCKED'`).
+
+### 2. Temporal Window Functions (`LAG()` Partitioning)
+Instead of expensive iterative self-joins, the database inspects transaction sequences using SQL analytic window functions:
+```sql
+SELECT
+    transaction_id,
+    card_id,
+    atm_id,
+    transaction_timestamp,
+    LAG(atm_id, 1) OVER (
+        PARTITION BY card_id
+        ORDER BY transaction_timestamp
+    ) AS prev_atm_id,
+    LAG(transaction_timestamp, 1) OVER (
+        PARTITION BY card_id
+        ORDER BY transaction_timestamp
+    ) AS prev_timestamp
+FROM transactions;
+```
+
+### 3. Rapid Frequency Burst & Outlier Analysis
+* **Rule BR-09 (High-Frequency Swiping Anomaly):** Flags $\ge 3$ transaction attempts within any sliding $5\text{-minute}$ window across distinct terminals.
+* **Rule BR-10 (Outlier Spending Spike):** Detects single withdrawal attempts exceeding $3.0\times$ the account's historical baseline.
+
+---
+
+## 🎮 Interactive Simulation (Web GUI & Terminal CLI)
 
 ### Option A: Interactive Web ATM GUI (Recommended for Presentations)
-Launch the graphical browser-based ATM simulator and Bank Admin Portal:
+Launch the graphical browser-based ATM simulator, Bank Admin Portal, and Fraud Radar:
 
 ```bash
-python3 app.py
+python app.py
 ```
 * **URL:** Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your web browser.
-* **Features:**
-  * 🏧 **Realistic ATM Enclosure**: Card reader slot, illuminated CRT terminal screen, cash dispenser, and audio-visual PIN pad.
-  * 💳 **Card Insertion & PIN Auth**: Click any test card to insert. Default demo PIN: **`1234`**. Enforces 3-strike lockout (Rule BR-07).
-  * 💰 **Balance Inquiry**: Shows real-time ledger balance, minimum required balance, and currency (INR ₹).
-  * 💵 **Cash Withdrawal**: Presets (₹500, ₹1k, ₹2k, ₹5k) or custom amount. Triggers physical cash dispenser animation and updates ATM cash reserves.
-  * 📥 **Cash Deposit**: Envelope/cash deposit credited immediately to account.
-  * 🔄 **Inter-Account Transfer**: Atomic two-phase fund transfer (`BEGIN TRANSACTION`, debit source, credit destination, `COMMIT`/`ROLLBACK`).
-  * 📜 **Mini-Statement**: Formatted table of recent transactions with date, time, and running balance.
-  * 🧾 **Printable Receipt**: Generates realistic thermal paper receipts with transaction reference.
-  * 🏛️ **Bank Admin & Analytics**: Fleet monitor of all 8 ATM terminals, cash replenishment, card unblocking, and DBMS group aggregates.
-  * ⚡ **Live SQL Query Inspector**: Live footer stream showing the exact SQL statements executed in real-time.
+* **Three Dedicated Views:**
+  1. 🏧 **ATM Terminal**: Realistic enclosure, sound effects, card insertion, PIN authentication, cash withdrawal, deposit, transfer, mini-statement, and thermal receipt generation.
+  2. 🏛️ **Bank Admin & Analytics**: Fleet monitor of all 8 Indian ATM terminals, cash replenishment, card unblocking, and aggregate financial metrics.
+  3. 🛡️ **Fraud & Geo-Velocity Radar**:
+     * **Threat Counters**: Total Alerts, Critical Breaches, Auto-Locked Cards, and Maximum Velocity Detected.
+     * **Interactive Attack Simulation Sandbox**: 1-click execution of *Impossible Travel (Mumbai ➔ Delhi in 15 mins)*, *Rapid Frequency Burst (4 swipes in 2 mins)*, and *Outlier Spending Spike*.
+     * **Live Security Audit Table**: Real-time forensic ledger of `fraud_alerts`.
+     * **ATM Geolocation Mesh**: Terminal coordinates, live cash reserves, and city-level risk heat index.
+  4. ⚡ **Live SQL Query Inspector**: Fixed footer showing the exact SQL queries executed in real-time.
 
 ---
 
@@ -85,22 +123,22 @@ python3 app.py
 Run the interactive ATM application directly in your terminal console:
 
 ```bash
-python3 scripts/interactive_cli.py
+python scripts/interactive_cli.py
 ```
-* Interactive menus, ANSI colors, card picker, secure PIN authentication, cash withdrawal, deposit, transfer, mini-statement, and administrative controls.
+* Interactive menus, sample card picker, PIN authentication, cash withdrawals with real-time fraud evaluation, and option `[F]` for the **Fraud & Geo-Velocity Radar**.
 
 ---
 
 ## 🚀 Automated Verification Suite
 
-To run the automated verification suite, execute the following from the root directory:
+To run the complete verification suite, execute the following from the root directory:
 
 ```bash
-python3 scripts/test_runner.py
+python scripts/test_runner.py
 ```
 
 ### Expected Output Summary:
-* Executes all 6 SQL scripts in proper sequence.
+* Executes all 7 SQL scripts in proper sequence (`01_ddl_create.sql` through `07_fraud_detection_engine.sql`).
 * Runs **Integrity Constraint Tests** and proves that the database blocks:
   * ❌ Negative balances (`CHECK balance >= 0.00`)
   * ❌ Duplicate email addresses (`UNIQUE`)
@@ -109,13 +147,17 @@ python3 scripts/test_runner.py
 * Executes single-row functions including PCI-DSS compliant card masking.
 * Generates aggregate portfolio summaries by account type.
 * Filters high-volume accounts using `HAVING`.
+* **Fraud & Geo-Velocity Test Suite:**
+  * ✅ Verifies Great-Circle Haversine distance accuracy between Mumbai and Delhi ($1,167.81\text{ km}$).
+  * ✅ Verifies Impossible Travel velocity detection ($4,671.24\text{ km/h} > 500\text{ km/h}$).
+  * ✅ Verifies automated soft-lockout of compromised cards.
 
 ---
 
 ## 🔄 Roadmap to Review 2 & Final Report
 * **Review 2 (10 Marks):**
   * Advanced SQL: Nested & Correlated Subqueries, Complex Multi-table Joins.
-  * Views: Customer statements and ATM cash level monitoring.
+  * Views: Customer statements, ATM cash level monitoring, and fraud movement forensics.
   * PL/SQL: Stored Procedures (atomic transfers), Functions, Cursors, and Triggers.
 * **Project Report (10 Marks):**
   * Final consolidated academic report combining Review 1, Review 2, screenshots, normalization proofs, and conclusion.

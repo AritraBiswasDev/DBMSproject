@@ -8,6 +8,7 @@ to the SQLite relational database (atm_system.db).
 from flask import Flask, render_template, request, jsonify
 import sqlite3
 import hashlib
+import math
 import os
 import sys
 from datetime import datetime
@@ -47,6 +48,154 @@ def get_db():
 
 def hash_pin(pin_str):
     return hashlib.sha256(str(pin_str).strip().encode("utf-8")).hexdigest()
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Computes geodesic distance between two latitude/longitude points in kilometers.
+    Uses the Haversine trigonometric formula.
+    """
+    try:
+        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
+        if lat1 == lat2 and lon1 == lon2:
+            return 0.0
+        R = 6371.0 # Earth radius in km
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0)**2
+        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
+        return round(R * c, 2)
+    except Exception:
+        return 0.0
+
+def evaluate_fraud_risk(conn, card_id, account_id, current_atm_id, amount, custom_prev=None):
+    """
+    In-Database Real-Time Multi-Vector Fraud Evaluation Engine:
+    1. Impossible Travel (Geo-Velocity Anomaly > 500 km/h)
+    2. Micro-Frequency Burst Attacks (>= 3 withdrawals in <= 5 minutes)
+    3. High-Value Outlier Anomalies (> ₹25,000 single withdrawal)
+    """
+    cur = conn.cursor()
+
+    # 1. Fetch current ATM details
+    cur.execute("SELECT atm_id, terminal_code, branch_name, city, latitude, longitude FROM atm_machines WHERE atm_id = ?;", (current_atm_id,))
+    curr_atm = cur.fetchone()
+    if not curr_atm:
+        return {"is_blocked": False, "is_flagged": False}
+
+    # 2. Check Geo-Velocity / Impossible Travel
+    if custom_prev:
+        prev_atm = custom_prev
+        prev_time = custom_prev.get("timestamp")
+    else:
+        prev_q = """
+            SELECT t.transaction_id, t.atm_id, t.amount, t.transaction_timestamp,
+                   atm.terminal_code, atm.branch_name, atm.city, atm.latitude, atm.longitude
+            FROM transactions t
+            JOIN atm_machines atm ON t.atm_id = atm.atm_id
+            WHERE t.account_id = ? AND t.atm_id IS NOT NULL
+            ORDER BY t.transaction_timestamp DESC, t.transaction_id DESC
+            LIMIT 1;
+        """
+        cur.execute(prev_q, (account_id,))
+        prev_atm = cur.fetchone()
+        prev_time = prev_atm["transaction_timestamp"] if prev_atm else None
+
+    if prev_atm and prev_atm["atm_id"] != curr_atm["atm_id"] and prev_time:
+        dist = haversine_distance(prev_atm["latitude"], prev_atm["longitude"], curr_atm["latitude"], curr_atm["longitude"])
+        try:
+            t1 = datetime.strptime(str(prev_time).split('.')[0], "%Y-%m-%d %H:%M:%S")
+            t2 = datetime.now() if not custom_prev else datetime.strptime(custom_prev["current_time"], "%Y-%m-%d %H:%M:%S")
+            delta_sec = abs((t2 - t1).total_seconds())
+            delta_min = max(delta_sec / 60.0, 0.05)
+        except Exception:
+            delta_min = 60.0
+
+        delta_hrs = delta_min / 60.0
+        speed_kmh = round(dist / max(delta_hrs, 0.0001), 2)
+
+        # Violation threshold: > 500 km/h is physically impossible by ground/flight in short windows
+        if speed_kmh > 500.0:
+            risk_score = min(99, int(70 + (speed_kmh / 80)))
+            details = (f"Impossible Travel: Card swiped at {prev_atm['terminal_code']} ({prev_atm['city']}) "
+                       f"and then at {curr_atm['terminal_code']} ({curr_atm['city']}). "
+                       f"Distance: {dist:,.1f} km in {delta_min:.1f} mins (Implied Speed: {speed_kmh:,.1f} km/h).")
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Log Critical Fraud Alert
+            ins_alert = """
+                INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                         prev_atm_id, current_atm_id, distance_km, time_delta_minutes,
+                                         implied_speed_kmh, action_taken, details, alert_timestamp)
+                VALUES (?, ?, 'GEO_VELOCITY_IMPOSSIBLE_TRAVEL', 'CRITICAL', ?, ?, ?, ?, ?, ?, 'CARD_AUTO_LOCKED', ?, ?);
+            """
+            cur.execute(ins_alert, (card_id, account_id, risk_score, prev_atm["atm_id"], curr_atm["atm_id"], dist, delta_min, speed_kmh, details, now_str))
+            
+            # Auto-lock card immediately
+            cur.execute("UPDATE cards SET status = 'BLOCKED' WHERE card_id = ?;", (card_id,))
+            conn.commit()
+            log_sql("INSERT INTO fraud_alerts ... UPDATE cards SET status='BLOCKED'", (f"Speed {speed_kmh} km/h",), status="BLOCKED")
+
+            return {
+                "is_blocked": True,
+                "is_flagged": True,
+                "alert_type": "GEO_VELOCITY_IMPOSSIBLE_TRAVEL",
+                "severity": "CRITICAL",
+                "risk_score": risk_score,
+                "distance_km": dist,
+                "time_delta_min": round(delta_min, 1),
+                "speed_kmh": speed_kmh,
+                "route": f"{prev_atm['city']} ➔ {curr_atm['city']}",
+                "reason": details
+            }
+
+    # 3. Check Micro-Frequency Burst
+    cur.execute("""
+        SELECT COUNT(*) AS cnt, COALESCE(SUM(amount), 0) AS burst_total
+        FROM transactions
+        WHERE account_id = ? 
+          AND transaction_type = 'WITHDRAWAL'
+          AND transaction_timestamp >= datetime('now', '-5 minutes');
+    """, (account_id,))
+    burst = cur.fetchone()
+    if burst and burst["cnt"] >= 3:
+        details = f"Frequency Burst Attack: {burst['cnt']} rapid cash withdrawals in under 5 minutes totaling ₹{burst['burst_total']:,.2f}."
+        ins_alert = """
+            INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                     current_atm_id, action_taken, details)
+            VALUES (?, ?, 'RAPID_FREQUENCY_BURST', 'HIGH', 85, ?, 'TRANSACTION_BLOCKED', ?);
+        """
+        cur.execute(ins_alert, (card_id, account_id, curr_atm["atm_id"], details))
+        conn.commit()
+        return {
+            "is_blocked": True,
+            "is_flagged": True,
+            "alert_type": "RAPID_FREQUENCY_BURST",
+            "severity": "HIGH",
+            "risk_score": 85,
+            "reason": details
+        }
+
+    # 4. Check High-Value Outlier
+    if amount >= 25000.0:
+        details = f"High-Value Outlier: Single withdrawal of ₹{amount:,.2f} exceeds standard risk baseline."
+        ins_alert = """
+            INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                     current_atm_id, action_taken, details)
+            VALUES (?, ?, 'HIGH_VALUE_OUTLIER', 'MEDIUM', 65, ?, 'FLAGGED_FOR_REVIEW', ?);
+        """
+        cur.execute(ins_alert, (card_id, account_id, curr_atm["atm_id"], details))
+        conn.commit()
+        return {
+            "is_blocked": False,
+            "is_flagged": True,
+            "alert_type": "HIGH_VALUE_OUTLIER",
+            "severity": "MEDIUM",
+            "risk_score": 65,
+            "reason": details
+        }
+
+    return {"is_blocked": False, "is_flagged": False}
 
 @app.route('/')
 def index():
@@ -295,6 +444,26 @@ def atm_withdraw():
             "message": f"Insufficient funds. Current balance is ₹{cur_bal:,.2f}."
         }), 400
 
+    # 3.5 Real-Time In-Database Fraud & Geo-Velocity Engine
+    fraud_eval = evaluate_fraud_risk(conn, card_id, account_id, atm_id, amount)
+    if fraud_eval.get("is_blocked"):
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'FAILED', ?, ?);
+        """, (account_id, atm_id, amount, cur_bal, f"Declined: {fraud_eval.get('reason')}", now_str))
+        conn.commit()
+        conn.close()
+        return jsonify({
+            "success": False,
+            "fraud_blocked": True,
+            "alert_type": fraud_eval.get("alert_type"),
+            "severity": fraud_eval.get("severity"),
+            "risk_score": fraud_eval.get("risk_score"),
+            "message": f"🚨 SECURITY INTERVENTION: {fraud_eval.get('reason')}",
+            "details": fraud_eval
+        }), 403
+
     # 4. Execute ACID Transaction: BEGIN -> DEBIT -> DISPENSE -> LOG -> COMMIT
     try:
         cur.execute("BEGIN TRANSACTION;")
@@ -309,11 +478,12 @@ def atm_withdraw():
         cur.execute(upd_atm, (amount, atm_id))
 
         # Record ledger
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ins_tx = """
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Withdrawal');
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Withdrawal', ?);
         """
-        cur.execute(ins_tx, (account_id, atm_id, amount, new_balance))
+        cur.execute(ins_tx, (account_id, atm_id, amount, new_balance, now_str))
         tx_id = cur.lastrowid
 
         conn.commit()
@@ -660,6 +830,294 @@ def get_analytics():
 @app.route('/api/admin/sql-logs', methods=['GET'])
 def get_sql_logs():
     return jsonify({"success": True, "logs": SQL_LOGS[:20]})
+
+# -----------------------------------------------------------------------------
+# FRAUD & GEO-VELOCITY ENGINE ENDPOINTS
+# -----------------------------------------------------------------------------
+@app.route('/api/fraud/alerts', methods=['GET'])
+def get_fraud_alerts():
+    conn = get_db()
+    cur = conn.cursor()
+    query = """
+        SELECT fa.alert_id, fa.alert_type, fa.severity, fa.risk_score,
+               fa.distance_km, fa.time_delta_minutes, fa.implied_speed_kmh,
+               fa.action_taken, fa.details, fa.alert_timestamp,
+               c.card_number, a.account_number,
+               cust.first_name || ' ' || cust.last_name AS customer_name,
+               a1.terminal_code AS prev_terminal, a1.city AS prev_city,
+               a2.terminal_code AS curr_terminal, a2.city AS curr_city
+        FROM fraud_alerts fa
+        JOIN cards c ON fa.card_id = c.card_id
+        JOIN accounts a ON fa.account_id = a.account_id
+        JOIN customers cust ON a.customer_id = cust.customer_id
+        LEFT JOIN atm_machines a1 ON fa.prev_atm_id = a1.atm_id
+        LEFT JOIN atm_machines a2 ON fa.current_atm_id = a2.atm_id
+        ORDER BY fa.alert_id DESC
+        LIMIT 50;
+    """
+    cur.execute(query)
+    rows = cur.fetchall()
+    log_sql(query)
+    conn.close()
+
+    alerts = []
+    for r in rows:
+        alerts.append({
+            "alert_id": r["alert_id"],
+            "alert_type": r["alert_type"],
+            "severity": r["severity"],
+            "risk_score": r["risk_score"],
+            "distance_km": float(r["distance_km"]) if r["distance_km"] is not None else None,
+            "time_delta_minutes": float(r["time_delta_minutes"]) if r["time_delta_minutes"] is not None else None,
+            "implied_speed_kmh": float(r["implied_speed_kmh"]) if r["implied_speed_kmh"] is not None else None,
+            "action_taken": r["action_taken"],
+            "details": r["details"],
+            "timestamp": r["alert_timestamp"],
+            "card_masked": f"{r['card_number'][:4]} •••• •••• {r['card_number'][-4:]}",
+            "account_number": r["account_number"],
+            "customer_name": r["customer_name"],
+            "route": f"{r['prev_city']} ➔ {r['curr_city']}" if r["prev_city"] else r["curr_city"]
+        })
+    return jsonify({"success": True, "alerts": alerts})
+
+@app.route('/api/fraud/stats', methods=['GET'])
+def get_fraud_stats():
+    conn = get_db()
+    cur = conn.cursor()
+    query = """
+        SELECT 
+            COUNT(*) AS total_alerts,
+            COUNT(CASE WHEN severity = 'CRITICAL' THEN 1 END) AS critical_count,
+            COUNT(CASE WHEN severity = 'HIGH' THEN 1 END) AS high_count,
+            COUNT(CASE WHEN severity = 'MEDIUM' THEN 1 END) AS medium_count,
+            COUNT(CASE WHEN action_taken = 'CARD_AUTO_LOCKED' THEN 1 END) AS auto_locked_cards,
+            COALESCE(ROUND(AVG(risk_score), 1), 0.0) AS avg_risk_score
+        FROM fraud_alerts;
+    """
+    cur.execute(query)
+    stats = cur.fetchone()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "total_alerts": stats["total_alerts"],
+        "critical_count": stats["critical_count"],
+        "high_count": stats["high_count"],
+        "medium_count": stats["medium_count"],
+        "auto_locked_cards": stats["auto_locked_cards"],
+        "avg_risk_score": float(stats["avg_risk_score"])
+    })
+
+@app.route('/api/fraud/terminals', methods=['GET'])
+def get_fraud_terminals():
+    conn = get_db()
+    cur = conn.cursor()
+    query = """
+        SELECT atm.atm_id, atm.terminal_code, atm.branch_name, atm.city,
+               atm.latitude, atm.longitude, atm.status, atm.cash_capacity, atm.current_cash_level,
+               COUNT(fa.alert_id) AS incident_count
+        FROM atm_machines atm
+        LEFT JOIN fraud_alerts fa ON atm.atm_id = fa.current_atm_id
+        GROUP BY atm.atm_id
+        ORDER BY atm.atm_id ASC;
+    """
+    cur.execute(query)
+    rows = cur.fetchall()
+    conn.close()
+
+    terminals = []
+    for r in rows:
+        terminals.append({
+            "atm_id": r["atm_id"],
+            "terminal_code": r["terminal_code"],
+            "branch_name": r["branch_name"],
+            "city": r["city"],
+            "latitude": float(r["latitude"]),
+            "longitude": float(r["longitude"]),
+            "status": r["status"],
+            "cash_level": float(r["current_cash_level"]),
+            "incident_count": r["incident_count"]
+        })
+    return jsonify({"success": True, "terminals": terminals})
+
+@app.route('/api/fraud/simulate', methods=['POST'])
+def simulate_fraud_attack():
+    data = request.json or {}
+    raw_type = (data.get("attack_type") or data.get("scenario") or "impossible_travel").lower()
+    if "impossible" in raw_type or "travel" in raw_type or "geo" in raw_type:
+        scenario = "impossible_travel"
+    elif "burst" in raw_type or "freq" in raw_type:
+        scenario = "burst"
+    elif "outlier" in raw_type or "spike" in raw_type or "amount" in raw_type:
+        scenario = "outlier"
+    else:
+        scenario = "impossible_travel"
+
+    card_id = data.get("card_id")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Get card details (or fallback to first available card)
+    card = None
+    if card_id:
+        cur.execute("""
+            SELECT c.card_id, c.card_number, c.account_id, a.account_number, a.balance,
+                   cust.first_name, cust.last_name
+            FROM cards c
+            JOIN accounts a ON c.account_id = a.account_id
+            JOIN customers cust ON a.customer_id = cust.customer_id
+            WHERE c.card_id = ?;
+        """, (card_id,))
+        card = cur.fetchone()
+
+    if not card:
+        cur.execute("""
+            SELECT c.card_id, c.card_number, c.account_id, a.account_number, a.balance,
+                   cust.first_name, cust.last_name
+            FROM cards c
+            JOIN accounts a ON c.account_id = a.account_id
+            JOIN customers cust ON a.customer_id = cust.customer_id
+            ORDER BY c.card_id ASC LIMIT 1;
+        """)
+        card = cur.fetchone()
+
+    if not card:
+        conn.close()
+        return jsonify({"success": False, "message": "No cards found in the system."}), 404
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if scenario == "impossible_travel":
+        # Simulate: Card used at ATM 1 (Mumbai) at 10:00 AM, then used at ATM 2 (New Delhi) at 10:15 AM
+        # Distance: 1,167 km in 15 mins -> Implied speed ~ 4,670 km/h (Physically Impossible)
+        cur.execute("SELECT * FROM atm_machines WHERE atm_id = 1;")
+        atm_mum = dict(cur.fetchone())
+        cur.execute("SELECT * FROM atm_machines WHERE atm_id = 2;")
+        atm_del = dict(cur.fetchone())
+
+        dist = haversine_distance(atm_mum["latitude"], atm_mum["longitude"], atm_del["latitude"], atm_del["longitude"])
+        delta_min = 15.0
+        delta_hrs = 15.0 / 60.0
+        speed_kmh = round(dist / delta_hrs, 2)
+        risk_score = 98
+
+        details = (f"SIMULATED ATTACK — Impossible Travel: Card #{card['card_number'][-4:]} swiped at {atm_mum['terminal_code']} ({atm_mum['city']}) "
+                   f"and attempted ₹5,000 withdrawal 15 mins later at {atm_del['terminal_code']} ({atm_del['city']}). "
+                   f"Geodesic Distance: {dist:,.1f} km, Speed: {speed_kmh:,.1f} km/h (Limit: > 500 km/h). Auto-locked.")
+
+        ins_alert = """
+            INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                     prev_atm_id, current_atm_id, distance_km, time_delta_minutes,
+                                     implied_speed_kmh, action_taken, details, alert_timestamp)
+            VALUES (?, ?, 'GEO_VELOCITY_IMPOSSIBLE_TRAVEL', 'CRITICAL', ?, 1, 2, ?, ?, ?, 'CARD_AUTO_LOCKED', ?, ?);
+        """
+        cur.execute(ins_alert, (card["card_id"], card["account_id"], risk_score, dist, delta_min, speed_kmh, details, now_str))
+
+        # Auto-lock card
+        cur.execute("UPDATE cards SET status = 'BLOCKED' WHERE card_id = ?;", (card["card_id"],))
+
+        # Record failed transaction in ledger
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, 2, 'WITHDRAWAL', 5000.00, ?, 'FAILED', 'Declined: In-Database Geo-Velocity Impossible Travel Violation', ?);
+        """, (card["account_id"], card["balance"], now_str))
+
+        conn.commit()
+        log_sql("INSERT INTO fraud_alerts ... SET status = 'BLOCKED'", (f"Speed {speed_kmh} km/h",), status="BLOCKED")
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "scenario": "impossible_travel",
+            "alert_type": "GEO_VELOCITY_IMPOSSIBLE_TRAVEL",
+            "severity": "CRITICAL",
+            "risk_score": risk_score,
+            "route": f"{atm_mum['city']} ({atm_mum['terminal_code']}) ➔ {atm_del['city']} ({atm_del['terminal_code']})",
+            "distance_km": dist,
+            "time_delta_min": delta_min,
+            "implied_speed_kmh": speed_kmh,
+            "action_taken": "CARD_AUTO_LOCKED",
+            "details": {
+                "details": details,
+                "action": "CARD_AUTO_LOCKED",
+                "severity": "CRITICAL",
+                "speed_kmh": speed_kmh,
+                "distance_km": dist
+            },
+            "message": f"🚨 CRITICAL GEO-VELOCITY VIOLATION DETECTED! Transit speed {speed_kmh:,.1f} km/h exceeds physical limit. Card #{card['card_number'][-4:]} has been automatically BLOCKED by the database engine."
+        })
+
+    elif scenario == "burst":
+        # Rapid frequency burst simulation
+        cur.execute("SELECT * FROM atm_machines WHERE atm_id = 4;") # Kolkata
+        atm_kol = dict(cur.fetchone())
+
+        details = f"SIMULATED ATTACK — Frequency Burst: 4 consecutive max-limit withdrawal requests detected within 45 seconds at {atm_kol['terminal_code']} ({atm_kol['city']})."
+        ins_alert = """
+            INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                     current_atm_id, action_taken, details, alert_timestamp)
+            VALUES (?, ?, 'RAPID_FREQUENCY_BURST', 'HIGH', 88, 4, 'TRANSACTION_BLOCKED', ?, ?);
+        """
+        cur.execute(ins_alert, (card["card_id"], card["account_id"], details, now_str))
+
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, 4, 'WITHDRAWAL', 2000.00, ?, 'FAILED', 'Declined: In-Database Rapid Frequency Burst Defense', ?);
+        """, (card["account_id"], card["balance"], now_str))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "scenario": "burst",
+            "alert_type": "RAPID_FREQUENCY_BURST",
+            "severity": "HIGH",
+            "risk_score": 88,
+            "action_taken": "TRANSACTION_BLOCKED",
+            "details": {
+                "details": details,
+                "action": "TRANSACTION_BLOCKED",
+                "severity": "HIGH"
+            },
+            "message": "⚠️ RAPID FREQUENCY BURST DEFENSE TRIGGERED! Multiple high-velocity requests detected. Transaction blocked."
+        })
+
+    elif scenario == "outlier":
+        cur.execute("SELECT * FROM atm_machines WHERE atm_id = 3;") # Bengaluru
+        atm_blr = dict(cur.fetchone())
+
+        details = f"SIMULATED ATTACK — Outlier Amount: Single ₹1,20,000 cash withdrawal attempt exceeding 3.0× account baseline (Rule BR-10) at {atm_blr['terminal_code']} ({atm_blr['city']})."
+        ins_alert = """
+            INSERT INTO fraud_alerts (card_id, account_id, alert_type, severity, risk_score,
+                                     current_atm_id, action_taken, details, alert_timestamp)
+            VALUES (?, ?, 'HIGH_VALUE_OUTLIER', 'HIGH', 82, 3, 'FLAGGED_FOR_REVIEW', ?, ?);
+        """
+        cur.execute(ins_alert, (card["card_id"], card["account_id"], details, now_str))
+
+        cur.execute("""
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, 3, 'WITHDRAWAL', 120000.00, ?, 'FAILED', 'Declined: In-Database Outlier Amount Anomaly Spike', ?);
+        """, (card["account_id"], card["balance"], now_str))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "scenario": "outlier",
+            "alert_type": "HIGH_VALUE_OUTLIER",
+            "severity": "HIGH",
+            "risk_score": 82,
+            "action_taken": "FLAGGED_FOR_REVIEW",
+            "details": {
+                "details": details,
+                "action": "FLAGGED_FOR_REVIEW",
+                "severity": "HIGH"
+            },
+            "message": "⚠️ OUTLIER SPENDING ANOMALY DETECTED! Withdrawal ₹1,20,000 exceeds 3.0× historical baseline. Transaction flagged and declined."
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
