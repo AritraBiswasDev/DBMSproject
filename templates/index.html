@@ -837,17 +837,231 @@
             white-space: nowrap;
         }
 
-        /* Responsive Adjustments */
-        @media (max-width: 1024px) {
-            .atm-wrapper {
-                grid-template-columns: 1fr;
-            }
-            .admin-grid {
-                grid-template-columns: 1fr;
-            }
-            .analytics-cards {
-                grid-template-columns: 1fr 1fr;
-            }
+        /* ==========================================================================
+           FRAUD & GEO-VELOCITY RADAR STYLES
+           ========================================================================== */
+        .fraud-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .fraud-hero-banner {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .fraud-hero-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .badge-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .badge-high {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .badge-medium {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.72rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .sim-container {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .sim-target-select {
+            background: #0f172a;
+            color: #f8fafc;
+            border: 1px solid #334155;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .sim-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+
+        .sim-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .sim-card:hover {
+            border-color: #38bdf8;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .sim-card-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sim-card-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+
+        .sim-btn {
+            width: 100%;
+            padding: 0.65rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .sim-btn-danger {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .sim-btn-danger:hover {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+        }
+
+        .sim-btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #b45309);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .sim-btn-warning:hover {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+        }
+
+        .sim-btn-info {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+
+        .sim-btn-info:hover {
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5);
+        }
+
+        .sim-result-box {
+            margin-top: 1.25rem;
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.8);
+            border-left: 4px solid #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            display: none;
+            line-height: 1.5;
+        }
+
+        .route-pill {
+            font-family: 'JetBrains Mono', monospace;
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #38bdf8;
+        }
+
+        .speed-pill {
+            font-family: 'JetBrains Mono', monospace;
+            color: #f87171;
+            font-weight: 700;
+            font-size: 0.78rem;
+        }
+
+        .radar-pulse-ring {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            animation: pulse-ring 1.8s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
     </style>
 </head>
@@ -870,6 +1084,9 @@
             <button class="nav-btn" onclick="switchView('admin')">
                 <span>🏛️</span> Bank Admin & Analytics
             </button>
+            <button class="nav-btn" onclick="switchView('fraud')">
+                <span>🛡️</span> Fraud & Geo-Velocity Radar
+            </button>
         </nav>
 
         <div class="status-badge">
@@ -889,11 +1106,41 @@
                 
                 <!-- Physical ATM Machine Enclosure -->
                 <div class="atm-machine">
-                    <div class="atm-header-plate">
-                        <div style="font-weight: 800; font-size: 1.1rem; color: #f8fafc; letter-spacing: 0.05em;">
-                            METRO BANK EXPRESS ATM
+                    <div class="atm-header-plate" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 1.05rem; color: #f8fafc; letter-spacing: 0.05em;">
+                                METRO BANK EXPRESS ATM
+                            </div>
+                            <div id="terminalLocationSubtitle" style="font-size: 0.75rem; color: #38bdf8; font-family: 'JetBrains Mono', monospace;">
+                                📍 Nariman Point Flagship, Mumbai • 18.9256° N, 72.8242° E
+                            </div>
                         </div>
-                        <div class="atm-id-tag">TERMINAL: ATM-MUM-01 (NARIMAN POINT)</div>
+
+                        <!-- ATM Terminal City Selector (Enables Manual Geo-Velocity Testing!) -->
+                        <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(15, 23, 42, 0.9); padding: 0.35rem 0.75rem; border-radius: 10px; border: 1px solid #475569;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase;">
+                                🌐 Physical ATM Location:
+                            </label>
+                            <select id="atmTerminalSelect" onchange="changeAtmTerminal(this.value)" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.8rem; font-weight: 700; cursor: pointer; outline: none;">
+                                <option value="1">ATM-01: Mumbai (Nariman Point)</option>
+                                <option value="2">ATM-02: New Delhi (Connaught Place)</option>
+                                <option value="3">ATM-03: Bengaluru (MG Road Metro)</option>
+                                <option value="4">ATM-04: Kolkata (Park Street)</option>
+                                <option value="5">ATM-05: Hyderabad (Hitec City)</option>
+                                <option value="6">ATM-06: Chennai (Anna Salai)</option>
+                                <option value="7">ATM-07: Pune (FC Road Campus)</option>
+                                <option value="8">ATM-08: Ahmedabad (SG Highway)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Manual Fraud Testing Tip -->
+                    <div style="background: rgba(30, 41, 59, 0.6); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 1rem; font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1rem;">💡</span>
+                        <span>
+                            <strong style="color: #38bdf8;">Manual Impossible Travel Test:</strong> 
+                            Withdraw cash here in <strong>Mumbai</strong>, then change the <em>Physical ATM Location</em> dropdown to <strong>New Delhi</strong> and withdraw again with the same card. The database will detect &gt;500 km/h velocity and automatically soft-lock the card!
+                        </span>
                     </div>
 
                     <!-- ATM Screen Housing -->
@@ -975,6 +1222,33 @@
                             <!-- Screen State 4: Dynamic Sub-Action View -->
                             <div class="screen-body" id="screenAction" style="display: none; align-items: stretch; text-align: left;">
                                 <div id="actionContent"></div>
+                            </div>
+
+                            <!-- Screen State 5: Real-Time Fraud & Impossible Travel Lockout -->
+                            <div class="screen-body" id="screenFraud" style="display: none; align-items: stretch; text-align: left; background: rgba(69, 10, 10, 0.95); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                    <span style="font-size: 2rem; animation: pulse 1s infinite;">🚨</span>
+                                    <div>
+                                        <div style="font-weight: 900; font-size: 1.05rem; color: #ef4444; letter-spacing: 0.05em;">
+                                            TRANSACTION DECLINED: SECURITY LOCKOUT
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: #fca5a5;" id="screenFraudSubtitle">
+                                            Rule BR-08 Violation: Impossible Travel Detected
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0.85rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #fecaca; line-height: 1.6; margin-bottom: 1rem;" id="screenFraudDetails">
+                                    <!-- Populated dynamically -->
+                                </div>
+
+                                <div style="font-size: 0.78rem; color: #fbbf24; margin-bottom: 1rem;">
+                                    🔒 In-Database ACID Intervention: Card status changed to <strong>'BLOCKED'</strong>. Terminal will not dispense cash.
+                                </div>
+
+                                <button class="screen-btn" style="background: #ef4444; color: #fff; border-color: #f87171; justify-content: center;" onclick="ejectCard()">
+                                    ⏏️ EJECT BLOCKED CARD
+                                </button>
                             </div>
 
                         </div>
@@ -1136,6 +1410,231 @@
             </div>
         </section>
 
+        <!-- ================================================================== -->
+        <!-- VIEW 3: FRAUD & GEO-VELOCITY RADAR                                 -->
+        <!-- ================================================================== -->
+        <section id="fraud-view" class="view-section">
+            <div class="fraud-dashboard">
+
+                <!-- Hero Status Banner -->
+                <div class="fraud-hero-banner">
+                    <div>
+                        <div class="fraud-hero-title">
+                            <span class="radar-pulse-ring"></span>
+                            <span>IN-DATABASE FRAUD & GEO-VELOCITY ENGINE</span>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.25rem;">
+                            Novel DBMS Feature: Real-time Haversine distance, temporal window functions (<code style="color: #38bdf8;">LAG() OVER (PARTITION BY card_id)</code>), and automated card lockout.
+                        </div>
+                    </div>
+                    <button class="btn-action-small" onclick="loadFraudData()" style="padding: 0.5rem 1rem;">
+                        🔄 Scan & Refresh Radar
+                    </button>
+                </div>
+
+                <!-- Threat Analytics Metric Cards -->
+                <div class="analytics-cards">
+                    <div class="metric-card">
+                        <div class="metric-label">TOTAL FRAUD ALERTS</div>
+                        <div class="metric-value" id="fraudTotalAlerts" style="color: #ef4444;">0</div>
+                        <div class="metric-sub" id="fraudTotalAlertsSub">Logged in fraud_alerts</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">CRITICAL BREACHES</div>
+                        <div class="metric-value" id="fraudCriticalBreaches" style="color: #f59e0b;">0</div>
+                        <div class="metric-sub">Impossible Travel Violations</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">AUTO-LOCKED CARDS</div>
+                        <div class="metric-value" id="fraudLockedCards" style="color: #38bdf8;">0</div>
+                        <div class="metric-sub">Compromised Credentials Blocked</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">MAX DETECTED VELOCITY</div>
+                        <div class="metric-value" id="fraudMaxVelocity" style="color: #a7f3d0;">0 km/h</div>
+                        <div class="metric-sub">Threshold: &gt; 500 km/h</div>
+                    </div>
+                </div>
+
+                <!-- Attack Simulation Sandbox (Interactive Demo) -->
+                <div class="sim-container">
+                    <div class="sim-header">
+                        <div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>🎯</span> Live Attack Simulation Sandbox (Faculty Demonstration)
+                            </div>
+                            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.2rem;">
+                                Execute real-time forensic attack vectors against the relational database and observe ACID security lockouts.
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <label style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">Target Card:</label>
+                            <select id="simTargetCardSelect" class="sim-target-select">
+                                <!-- Populated dynamically from available cards -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="sim-grid">
+                        <!-- Simulation 1: Impossible Travel -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>✈️</span> Impossible Travel Vector
+                                </div>
+                                <p class="sim-card-desc">
+                                    Simulates a legitimate swipe in <strong>Mumbai</strong> followed by a swipe in <strong>New Delhi (1,168 km away)</strong> just 15 minutes later. Velocity exceeds 4,600 km/h.
+                                </p>
+                                <div style="font-size: 0.75rem; color: #ef4444; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">
+                                    TRIGGERS: Rule BR-08 (Velocity &gt; 500 km/h) &rarr; AUTO CARD BLOCK
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-danger" onclick="triggerSimulation('IMPOSSIBLE_TRAVEL')">
+                                🚀 Execute Impossible Travel Attack
+                            </button>
+                        </div>
+
+                        <!-- Simulation 2: Frequency Burst -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>⚡</span> Rapid Frequency Burst
+                                </div>
+                                <p class="sim-card-desc">
+                                    Fires 4 rapid-fire withdrawals within a 2-minute time window across different terminals to test burst detection.
+                                </p>
+                                <div style="font-size: 0.75rem; color: #f59e0b; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">
+                                    TRIGGERS: Rule BR-09 (&ge; 3 swiping attempts in 5 mins)
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-warning" onclick="triggerSimulation('FREQUENCY_BURST')">
+                                ⚡ Execute Frequency Burst Attack
+                            </button>
+                        </div>
+
+                        <!-- Simulation 3: Extreme Outlier Amount -->
+                        <div class="sim-card">
+                            <div>
+                                <div class="sim-card-title">
+                                    <span>💸</span> Extreme Outlier Spike
+                                </div>
+                                <p class="sim-card-desc">
+                                    Attempts an abnormal ₹1,20,000 cash withdrawal that deviates significantly from the account's historical spending baseline.
+                                </p>
+                                <div style="font-size: 0.75rem; color: #38bdf8; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">
+                                    TRIGGERS: Rule BR-10 (Amount &gt; 3.0&times; Avg Transaction)
+                                </div>
+                            </div>
+                            <button class="sim-btn sim-btn-info" onclick="triggerSimulation('OUTLIER_AMOUNT')">
+                                📈 Execute Outlier Amount Attack
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Simulation Results Toast -->
+                    <div id="simResultBox" class="sim-result-box"></div>
+                </div>
+
+                <!-- Two-Column Forensic Inspection Grid -->
+                <div class="admin-grid">
+                    
+                    <!-- Real-Time Fraud Alerts Table -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span>🚨</span>
+                                <span>Live Security Audit Table (<code>fraud_alerts</code>)</span>
+                            </div>
+                            <button class="btn-action-small" onclick="loadFraudData()">Refresh</button>
+                        </div>
+                        <div style="overflow-x: auto; max-height: 480px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Alert ID</th>
+                                        <th>Card & Holder</th>
+                                        <th>Threat Vector</th>
+                                        <th>Severity</th>
+                                        <th>Movement / Velocity</th>
+                                        <th>ACID Action</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fraudAlertsTableBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ATM Geolocation Network Status -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span>🌐</span>
+                                <span>ATM Terminal Fleet & Geo-Coordinates</span>
+                            </div>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">Spherical Coordinate Mesh</span>
+                        </div>
+                        <div style="overflow-x: auto; max-height: 480px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>City & Terminal</th>
+                                        <th>Latitude</th>
+                                        <th>Longitude</th>
+                                        <th>Transactions</th>
+                                        <th>Alerts</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="atmFleetTableBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Mathematical & Relational Proof Section -->
+                <div class="panel-box" style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div class="panel-header" style="color: #38bdf8;">
+                        <span>📐 Mathematical Architecture & In-Database Novelty</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+                        <div>
+                            <strong style="color: #f8fafc;">1. Haversine Great-Circle Trigonometry</strong>
+                            <p style="margin-top: 0.4rem; color: #94a3b8;">
+                                To compute instantaneous physical distance between consecutive ATM card swipes, the database uses spherical trigonometry:
+                            </p>
+                            <div style="background: #020617; padding: 0.75rem; border-radius: 8px; margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #a7f3d0; border-left: 3px solid #10b981;">
+                                d = 2R &times; arcsin(&radic;(sin&sup2;(&Delta;&phi;/2) + cos(&phi;&sub1;)cos(&phi;&sub2;)sin&sup2;(&Delta;&lambda;/2)))<br>
+                                Velocity (v) = &Delta;d (km) / &Delta;t (hours)
+                            </div>
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8;">
+                                If v &gt; 500 km/h, physical human travel is impossible without supersonic transport, establishing unambiguous fraud evidence.
+                            </p>
+                        </div>
+                        <div>
+                            <strong style="color: #f8fafc;">2. SQL Window Function Temporal Partitioning</strong>
+                            <p style="margin-top: 0.4rem; color: #94a3b8;">
+                                The database performs stateful temporal analysis without slow multi-table joins using SQL window functions:
+                            </p>
+                            <div style="background: #020617; padding: 0.75rem; border-radius: 8px; margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #38bdf8; border-left: 3px solid #0284c7;">
+                                LAG(atm_id, 1) OVER (PARTITION BY card_id ORDER BY transaction_date)<br>
+                                LAG(transaction_date, 1) OVER (PARTITION BY card_id ORDER BY transaction_date)
+                            </div>
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8;">
+                                When flagged, the transaction engine triggers an automated ACID rollback, writes to <code style="color: #f87171;">fraud_alerts</code>, and sets <code style="color: #f87171;">cards.status = 'BLOCKED'</code>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
     </main>
 
     <!-- Thermal Paper Receipt Overlay -->
@@ -1247,10 +1746,14 @@
             if (viewName === 'atm') {
                 document.querySelectorAll('.nav-btn')[0].classList.add('active');
                 document.getElementById('atm-view').classList.add('active');
-            } else {
+            } else if (viewName === 'admin') {
                 document.querySelectorAll('.nav-btn')[1].classList.add('active');
                 document.getElementById('admin-view').classList.add('active');
                 loadAdminData();
+            } else if (viewName === 'fraud') {
+                document.querySelectorAll('.nav-btn')[2].classList.add('active');
+                document.getElementById('fraud-view').classList.add('active');
+                loadFraudData();
             }
         }
 
@@ -1327,12 +1830,41 @@
             showScreen('welcome');
         }
 
+        let currentAtmId = 1;
+
+        function changeAtmTerminal(atmId) {
+            currentAtmId = parseInt(atmId);
+            playBeep(900, 0.08);
+
+            const terminalMap = {
+                1: { code: "ATM-MUM-01", city: "Mumbai", loc: "Nariman Point Flagship", coords: "18.9256° N, 72.8242° E" },
+                2: { code: "ATM-DEL-02", city: "New Delhi", loc: "Connaught Place Central", coords: "28.6315° N, 77.2167° E" },
+                3: { code: "ATM-BLR-03", city: "Bengaluru", loc: "MG Road Metro Hub", coords: "12.9716° N, 77.5946° E" },
+                4: { code: "ATM-KOL-04", city: "Kolkata", loc: "Park Street Heritage", coords: "22.5535° N, 88.3518° E" },
+                5: { code: "ATM-HYD-05", city: "Hyderabad", loc: "Hitec City Cyber Dome", coords: "17.4474° N, 78.3762° E" },
+                6: { code: "ATM-CHE-06", city: "Chennai", loc: "Anna Salai Tech Corridor", coords: "13.0604° N, 80.2496° E" },
+                7: { code: "ATM-PUN-07", city: "Pune", loc: "FC Road Campus", coords: "18.5204° N, 73.8567° E" },
+                8: { code: "ATM-AMD-08", city: "Ahmedabad", loc: "SG Highway Commercial", coords: "23.0225° N, 72.5714° E" }
+            };
+
+            const info = terminalMap[currentAtmId] || terminalMap[1];
+            const sub = document.getElementById('terminalLocationSubtitle');
+            if (sub) sub.innerText = `📍 ${info.loc}, ${info.city} • ${info.coords}`;
+            
+            const scrTop = document.getElementById('liveClock');
+            if (scrTop && scrTop.parentElement) {
+                scrTop.parentElement.children[0].innerText = `METRO BANK 24/7 | ${info.code} (${info.city.toUpperCase()})`;
+            }
+        }
+
         function showScreen(screenId) {
             currentScreen = screenId;
             document.getElementById('screenWelcome').style.display = screenId === 'welcome' ? 'flex' : 'none';
             document.getElementById('screenPin').style.display = screenId === 'pin' ? 'flex' : 'none';
             document.getElementById('screenMenu').style.display = screenId === 'menu' ? 'flex' : 'none';
             document.getElementById('screenAction').style.display = screenId === 'action' ? 'flex' : 'none';
+            const screenFraud = document.getElementById('screenFraud');
+            if (screenFraud) screenFraud.style.display = screenId === 'fraud' ? 'flex' : 'none';
         }
 
         // Keypad Interactions
@@ -1574,6 +2106,7 @@
                     body: JSON.stringify({
                         account_id: currentSession.account_id,
                         card_id: currentSession.card_id,
+                        atm_id: currentAtmId,
                         amount: amount
                     })
                 });
@@ -1585,6 +2118,28 @@
                     triggerCashDispenser(data.amount);
                     fetchCards();
                     showReceipt('WITHDRAWAL', data.amount, data.new_balance, data.account_number, `TXN-${data.transaction_id}`);
+                } else if (data.fraud_blocked) {
+                    playBeep(200, 0.6); // Low threat buzzer
+                    fetchCards(); // Refresh cards drawer so card turns RED / BLOCKED
+                    
+                    const details = data.details || {};
+                    const subtitle = document.getElementById('screenFraudSubtitle');
+                    const content = document.getElementById('screenFraudDetails');
+                    
+                    if (subtitle) subtitle.innerText = `VIOLATION: ${data.alert_type || 'FRAUD RISK DETECTED'}`;
+                    if (content) {
+                        content.innerHTML = `
+                            <div><strong>🚨 BREACH TYPE:</strong> ${data.alert_type || 'IMPOSSIBLE_TRAVEL'}</div>
+                            <div><strong>📍 ROUTE DETECTED:</strong> ${details.route || 'Cross-city rapid swiping'}</div>
+                            <div><strong>⚡ IMPLIED SPEED:</strong> <span style="color: #f87171; font-weight: 900;">${details.speed_kmh ? details.speed_kmh.toLocaleString() + ' km/h' : 'Supersonic (> 500 km/h limit)'}</span></div>
+                            <div><strong>📏 GEODESIC DISTANCE:</strong> ${details.distance_km ? details.distance_km + ' km' : 'N/A'}</div>
+                            <div><strong>⏱️ TIME ELAPSED:</strong> ${details.time_delta_min ? details.time_delta_min + ' minutes' : 'Instantaneous'}</div>
+                            <div style="margin-top: 0.5rem; color: #fca5a5;"><strong>ACID ACTION:</strong> TRANSACTION BLOCKED & CARD AUTO-LOCKED IN DATABASE</div>
+                        `;
+                    }
+                    showScreen('fraud');
+                    updateSqlLogs();
+                    if (typeof loadFraudData === 'function') loadFraudData();
                 } else {
                     playBeep(250, 0.3);
                     alert("Declined: " + data.message);
@@ -1841,6 +2396,148 @@
 
         function focusCardDrawer() {
             document.querySelector('.cards-drawer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Populate Target Cards for Fraud Simulation
+        function populateSimCardsSelect() {
+            const select = document.getElementById('simTargetCardSelect');
+            if (!select) return;
+            select.innerHTML = "";
+            availableCards.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.card_id;
+                opt.innerText = `${c.customer_name} (${c.masked_number}) - ${c.status}`;
+                select.appendChild(opt);
+            });
+        }
+
+        // Load Fraud Dashboard Data
+        async function loadFraudData() {
+            populateSimCardsSelect();
+            try {
+                // 1. Threat Statistics
+                const sRes = await fetch('/api/fraud/stats');
+                const sData = await sRes.json();
+                if (sData.success) {
+                    const st = sData.stats;
+                    document.getElementById('fraudTotalAlerts').innerText = st.total_alerts;
+                    document.getElementById('fraudCriticalBreaches').innerText = st.critical_alerts;
+                    document.getElementById('fraudLockedCards').innerText = st.auto_locked_cards;
+                    document.getElementById('fraudMaxVelocity').innerText = `${st.max_velocity_kmh.toLocaleString('en-IN', {maximumFractionDigits: 1})} km/h`;
+                }
+
+                // 2. Forensic Alerts Table
+                const aRes = await fetch('/api/fraud/alerts');
+                const aData = await aRes.json();
+                if (aData.success) {
+                    const tbody = document.getElementById('fraudAlertsTableBody');
+                    tbody.innerHTML = "";
+                    if (aData.alerts.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 1.5rem;">No fraud alerts recorded. Network secure.</td></tr>`;
+                    } else {
+                        aData.alerts.forEach(a => {
+                            const row = document.createElement('tr');
+                            const sevClass = a.severity === 'CRITICAL' ? 'badge-critical' : (a.severity === 'HIGH' ? 'badge-high' : 'badge-medium');
+                            const speedInfo = a.calculated_velocity_kmh > 0 
+                                ? `<span class="speed-pill">⚡ ${a.calculated_velocity_kmh.toFixed(1)} km/h</span><br><span style="font-size: 0.72rem; color: #94a3b8;">${a.distance_km ? a.distance_km.toFixed(1) + ' km' : ''} in ${a.time_diff_mins ? a.time_diff_mins.toFixed(0) + 'm' : ''}</span>`
+                                : `<span style="color: #94a3b8;">N/A</span>`;
+
+                            row.innerHTML = `
+                                <td><code>#${a.alert_id}</code></td>
+                                <td>
+                                    <strong>${a.customer_name}</strong><br>
+                                    <code style="font-size: 0.75rem; color: #94a3b8;">${a.masked_card}</code>
+                                </td>
+                                <td><span class="route-pill">${a.alert_type}</span></td>
+                                <td><span class="${sevClass}">${a.severity}</span></td>
+                                <td>${speedInfo}</td>
+                                <td><code style="font-size: 0.75rem; color: #f87171;">${a.action_taken}</code></td>
+                                <td style="font-size: 0.75rem; color: #94a3b8;">${a.created_at}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                }
+
+                // 3. ATM Fleet Geolocation Mesh
+                const tRes = await fetch('/api/fraud/terminals');
+                const tData = await tRes.json();
+                if (tData.success) {
+                    const tbody = document.getElementById('atmFleetTableBody');
+                    tbody.innerHTML = "";
+                    tData.terminals.forEach(t => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><code>ATM-${t.atm_id.toString().padStart(2, '0')}</code></td>
+                            <td>
+                                <strong>${t.city}</strong><br>
+                                <span style="font-size: 0.75rem; color: #94a3b8;">${t.location}</span>
+                            </td>
+                            <td><code>${t.latitude.toFixed(4)}° N</code></td>
+                            <td><code>${t.longitude.toFixed(4)}° E</code></td>
+                            <td style="text-align: center;"><strong>${t.tx_count}</strong></td>
+                            <td style="text-align: center;">
+                                ${t.fraud_alert_count > 0 ? `<span class="badge-critical">${t.fraud_alert_count} Alerts</span>` : `<span style="color: #10b981; font-weight: 600;">0 (Clean)</span>`}
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (err) {
+                console.error("Fraud radar load error:", err);
+            }
+        }
+
+        // Trigger Attack Simulation
+        async function triggerSimulation(attackType) {
+            const select = document.getElementById('simTargetCardSelect');
+            const cardId = select ? select.value : 2;
+            const resultBox = document.getElementById('simResultBox');
+
+            resultBox.style.display = 'block';
+            resultBox.style.borderLeftColor = '#38bdf8';
+            resultBox.innerHTML = `⏳ Executing in-database simulation attack [${attackType}] on card #${cardId}...`;
+
+            try {
+                const res = await fetch('/api/fraud/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attack_type: attackType,
+                        card_id: parseInt(cardId)
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    playBeep(240, 0.4); // Threat sound
+                    resultBox.style.borderLeftColor = '#ef4444';
+                    resultBox.innerHTML = `
+                        <div style="color: #ef4444; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                            🚨 FRAUD ANOMALY TRIGGERED & MITIGATED!
+                        </div>
+                        <div style="color: #e2e8f0; margin-bottom: 0.3rem;">
+                            <strong>Message:</strong> ${data.message}
+                        </div>
+                        <div style="font-size: 0.78rem; color: #94a3b8;">
+                            <strong>Forensics:</strong> ${data.details.details || JSON.stringify(data.details)}<br>
+                            <strong>Action:</strong> <span style="color: #f87171; font-weight: 700;">${data.details.action || 'TRANSACTION_BLOCKED'}</span> | 
+                            <strong>Severity:</strong> <span style="color: #f59e0b; font-weight: 700;">${data.details.severity || 'CRITICAL'}</span>
+                        </div>
+                    `;
+
+                    // Refresh all views
+                    loadFraudData();
+                    fetchCards();
+                    updateSqlLogs();
+                } else {
+                    resultBox.style.borderLeftColor = '#f59e0b';
+                    resultBox.innerHTML = `⚠️ Simulation notice: ${data.message}`;
+                }
+            } catch (err) {
+                resultBox.style.borderLeftColor = '#ef4444';
+                resultBox.innerHTML = `❌ Simulation failed: ${err.message}`;
+            }
         }
 
         // Global Keyboard Handler (Keys 0-9, Enter, Backspace, Escape)

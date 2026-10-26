@@ -13,6 +13,7 @@
 -- ============================================================================
 
 -- Drop existing tables in reverse dependency order to avoid FK constraint errors
+DROP TABLE IF EXISTS fraud_alerts;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS cards;
 DROP TABLE IF EXISTS accounts;
@@ -106,6 +107,8 @@ CREATE TABLE atm_machines (
     branch_name         VARCHAR(100)   NOT NULL,
     location_address    VARCHAR(150)   NOT NULL,
     city                VARCHAR(50)    NOT NULL,
+    latitude            DECIMAL(9, 6)  NOT NULL DEFAULT 0.0,
+    longitude           DECIMAL(9, 6)  NOT NULL DEFAULT 0.0,
     cash_capacity       DECIMAL(15, 2) NOT NULL DEFAULT 50000.00
                                        CHECK (cash_capacity >= 0.00),
     current_cash_level  DECIMAL(15, 2) NOT NULL DEFAULT 50000.00
@@ -147,6 +150,57 @@ CREATE TABLE transactions (
         ON UPDATE CASCADE,
     CONSTRAINT fk_trans_atm
         FOREIGN KEY (atm_id)
+        REFERENCES atm_machines(atm_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE
+);
+
+-- ----------------------------------------------------------------------------
+-- Table 6: FRAUD_ALERTS
+-- Real-time security, geo-velocity, and impossible travel anomaly ledger.
+-- ----------------------------------------------------------------------------
+CREATE TABLE fraud_alerts (
+    alert_id             INTEGER PRIMARY KEY,
+    transaction_id       INTEGER,
+    card_id              INTEGER        NOT NULL,
+    account_id           INTEGER        NOT NULL,
+    alert_type           VARCHAR(50)    NOT NULL
+                                        CHECK (alert_type IN ('GEO_VELOCITY_IMPOSSIBLE_TRAVEL', 'RAPID_FREQUENCY_BURST', 'HIGH_VALUE_OUTLIER', 'OFF_HOURS_HIGH_VALUE', 'PIN_BRUTE_FORCE')),
+    severity             VARCHAR(15)    NOT NULL
+                                        CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    risk_score           INTEGER        NOT NULL
+                                        CHECK (risk_score >= 0 AND risk_score <= 100),
+    prev_atm_id          INTEGER,
+    current_atm_id       INTEGER,
+    distance_km          DECIMAL(8, 2),
+    time_delta_minutes   DECIMAL(8, 2),
+    implied_speed_kmh    DECIMAL(8, 2),
+    action_taken         VARCHAR(50)    NOT NULL
+                                        CHECK (action_taken IN ('FLAGGED_FOR_REVIEW', 'TRANSACTION_BLOCKED', 'CARD_AUTO_LOCKED')),
+    details              TEXT,
+    alert_timestamp      TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_fraud_trans
+        FOREIGN KEY (transaction_id)
+        REFERENCES transactions(transaction_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_fraud_card
+        FOREIGN KEY (card_id)
+        REFERENCES cards(card_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_fraud_account
+        FOREIGN KEY (account_id)
+        REFERENCES accounts(account_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_fraud_prev_atm
+        FOREIGN KEY (prev_atm_id)
+        REFERENCES atm_machines(atm_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_fraud_curr_atm
+        FOREIGN KEY (current_atm_id)
         REFERENCES atm_machines(atm_id)
         ON DELETE SET NULL
         ON UPDATE CASCADE

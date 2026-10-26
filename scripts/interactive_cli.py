@@ -20,6 +20,14 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_FILE = os.path.join(BASE_DIR, "atm_system.db")
 
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+try:
+    from app import evaluate_fraud_risk, haversine_distance
+except ImportError:
+    evaluate_fraud_risk = None
+    haversine_distance = None
+
 # ANSI Color Codes
 CYAN = "\033[96m"
 GREEN = "\033[92m"
@@ -28,6 +36,25 @@ RED = "\033[91m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
+
+CURRENT_ATM = {"id": 1, "city": "Mumbai", "loc": "Nariman Point"}
+
+def switch_atm_terminal(conn):
+    global CURRENT_ATM
+    cur = conn.cursor()
+    cur.execute("SELECT atm_id, city, location_description, latitude, longitude FROM atm_machines ORDER BY atm_id;")
+    terminals = cur.fetchall()
+    print(f"\n{CYAN}{BOLD}--- SELECT PHYSICAL ATM TERMINAL LOCATION ---{RESET}")
+    for t in terminals:
+        active_mark = f"{GREEN}*ACTIVE*{RESET}" if t["atm_id"] == CURRENT_ATM["id"] else ""
+        print(f"  [{t['atm_id']}] {t['city']:<12} - {t['location_description']:<26} ({t['latitude']:.4f}°N, {t['longitude']:.4f}°E) {active_mark}")
+
+    choice = input(f"\nSelect ATM ID (1-{len(terminals)}) > ").strip()
+    if choice.isdigit() and 1 <= int(choice) <= len(terminals):
+        t_sel = next((t for t in terminals if t["atm_id"] == int(choice)), None)
+        if t_sel:
+            CURRENT_ATM = {"id": t_sel["atm_id"], "city": t_sel["city"], "loc": t_sel["location_description"]}
+            print(f"\n{GREEN}✅ Switched physical location to: ATM-{t_sel['atm_id']:02d} ({t_sel['city']} - {t_sel['location_description']}){RESET}")
 
 def get_db():
     conn = sqlite3.connect(DB_FILE)
@@ -83,18 +110,27 @@ def list_sample_cards(conn):
 
 def authenticate_card(conn):
     cards = list_sample_cards(conn)
-    print(f"\n{BOLD}Options:{RESET}")
+    print(f"\n{BOLD}📍 Current Terminal: {CYAN}ATM-{CURRENT_ATM['id']:02d} ({CURRENT_ATM['city']} - {CURRENT_ATM['loc']}){RESET}")
+    print(f"{BOLD}Options:{RESET}")
     print("  [1-6] Quick-select a card from the list above")
     print("  [M]   Manually enter a 16-digit card number")
+    print("  [T]   📍 Switch Physical ATM Terminal Location (e.g. Mumbai ➔ Delhi)")
     print("  [A]   Bank Admin Dashboard")
+    print("  [F]   🛡️  Fraud & Geo-Velocity Radar (DBMS Novelty Engine)")
     print("  [Q]   Exit Application")
 
     choice = input(f"\n{BOLD}Select an option > {RESET}").strip()
     if choice.upper() == 'Q':
         print(f"\n{GREEN}Thank you for banking with Metro Bank. Goodbye!{RESET}\n")
         sys.exit(0)
+    elif choice.upper() == 'T':
+        switch_atm_terminal(conn)
+        return None
     elif choice.upper() == 'A':
         admin_dashboard(conn)
+        return None
+    elif choice.upper() == 'F':
+        fraud_radar_cli(conn)
         return None
     elif choice.upper() == 'M':
         card_num = input("Enter 16-digit card number: ").strip()
@@ -204,7 +240,7 @@ def withdraw_cash(conn, card):
 
     cur = conn.cursor()
     # Check ATM machine cash reserve
-    cur.execute("SELECT current_cash_level, status FROM atm_machines WHERE atm_id = 1;")
+    cur.execute("SELECT current_cash_level, status FROM atm_machines WHERE atm_id = ?;", (CURRENT_ATM["id"],))
     atm = cur.fetchone()
     if atm["status"] != "ONLINE" or atm["current_cash_level"] < amt:
         print(f"{RED}❌ Transaction Declined: ATM has insufficient physical cash or is offline.{RESET}")
@@ -223,27 +259,45 @@ def withdraw_cash(conn, card):
         print(f"{RED}❌ Transaction Declined: Insufficient balance! Current Balance: ₹{acc['balance']:,.2f}.{RESET}")
         return
 
+    # Real-Time In-Database Fraud & Geo-Velocity Risk Assessment
+    if evaluate_fraud_risk:
+        fraud_risk = evaluate_fraud_risk(conn, card["card_id"], card["account_id"], CURRENT_ATM["id"], amt)
+        if fraud_risk.get("is_blocked"):
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("""
+                INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+                VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'FAILED', ?, ?);
+            """, (card["account_id"], CURRENT_ATM["id"], amt, acc["balance"], f"Declined: {fraud_risk.get('reason')}", now_str))
+            conn.commit()
+            print(f"\n{RED}{BOLD}🚨 SECURITY LOCKOUT (Rule BR-08 Violation)!{RESET}")
+            print(f"{RED}{fraud_risk.get('reason')}{RESET}")
+            print(f"{RED}Transaction blocked. Your card has been locked immediately. Contact branch admin.{RESET}")
+            return
+        elif fraud_risk.get("is_flagged"):
+            print(f"\n{YELLOW}⚠️  SECURITY WARNING: {fraud_risk.get('reason')}{RESET}")
+
     # Execute ACID Transaction
     try:
         cur.execute("BEGIN TRANSACTION;")
         new_balance = acc["balance"] - amt
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 1. Deduct balance from account
         cur.execute("UPDATE accounts SET balance = ? WHERE account_id = ?;", (new_balance, card["account_id"]))
         
         # 2. Deduct physical cash from ATM
-        cur.execute("UPDATE atm_machines SET current_cash_level = current_cash_level - ? WHERE atm_id = 1;", (amt,))
+        cur.execute("UPDATE atm_machines SET current_cash_level = current_cash_level - ? WHERE atm_id = ?;", (amt, CURRENT_ATM["id"]))
         
         # 3. Log transaction ledger
         cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, 1, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Dispense');
-        """, (card["account_id"], amt, new_balance))
+            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
+            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Dispense', ?);
+        """, (card["account_id"], CURRENT_ATM["id"], amt, new_balance, now_str))
         tx_id = cur.lastrowid
 
         conn.commit()
         print(f"\n{GREEN}💵 [CHING!] Cash Dispensed: ₹{amt:,.2f}. Please collect your cash!{RESET}")
-        print_receipt(tx_id, acc["account_number"], "WITHDRAWAL", amt, new_balance)
+        print_receipt(tx_id, acc["account_number"], "WITHDRAWAL", amt, new_balance, terminal=f"ATM-{CURRENT_ATM['id']:02d} ({CURRENT_ATM['city']})")
 
     except Exception as e:
         conn.rollback()
@@ -496,6 +550,90 @@ def admin_dashboard(conn):
             c = GREEN if r["status"] == "SUCCESS" else RED
             print(f"{r['transaction_id']:<7} {r['account_id']:<5} {r['transaction_type']:<16} ₹{r['amount']:<11,.2f} ₹{r['balance_after']:<13,.2f} {c}{r['status']:<9}{RESET} {r['transaction_timestamp']}")
 
+def fraud_radar_cli(conn):
+    cur = conn.cursor()
+    while True:
+        print(f"\n{CYAN}{BOLD}=================================================================")
+        print("      🛡️  REAL-TIME IN-DATABASE FRAUD & GEO-VELOCITY RADAR  🛡️      ")
+        print("================================================================={RESET}")
+
+        cur.execute("SELECT COUNT(*) AS total FROM fraud_alerts;")
+        total_alerts = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS critical FROM fraud_alerts WHERE severity = 'CRITICAL';")
+        crit_alerts = cur.fetchone()["critical"]
+        cur.execute("SELECT COUNT(*) AS locked FROM cards WHERE status = 'BLOCKED';")
+        locked_cards = cur.fetchone()["locked"]
+
+        print(f"\n{BOLD}Threat Summary:{RESET}")
+        print(f"  • Total Alerts Logged:   {RED if total_alerts > 0 else GREEN}{total_alerts}{RESET}")
+        print(f"  • Critical Breaches:     {RED if crit_alerts > 0 else GREEN}{crit_alerts}{RESET}")
+        print(f"  • Cards Auto-Locked:     {YELLOW if locked_cards > 0 else GREEN}{locked_cards}{RESET}")
+
+        print(f"\n{BOLD}Radar Actions:{RESET}")
+        print("  [1] 📋 View Recent Forensic Fraud Alerts (fraud_alerts table)")
+        print("  [2] 🌐 View ATM Fleet Geolocation Mesh & Risk Index")
+        print("  [3] 🚀 Simulate Impossible Travel Attack (Mumbai ➔ Delhi in 15 mins)")
+        print("  [4] ⚡ Simulate High-Frequency Swiping Burst (4 swipes in 2 mins)")
+        print("  [5] 📈 Simulate Extreme Outlier Cash Withdrawal Spike")
+        print("  [0] Back to Main Menu")
+
+        choice = input(f"\n{BOLD}Select Radar Option > {RESET}").strip()
+
+        if choice == "1":
+            cur.execute("""
+                SELECT fa.alert_id, fa.alert_type, fa.severity, fa.action_taken,
+                       fa.distance_km, fa.time_diff_mins, fa.calculated_velocity_kmh,
+                       fa.amount, fa.created_at,
+                       cust.first_name || ' ' || cust.last_name AS customer_name,
+                       c.card_number
+                FROM fraud_alerts fa
+                JOIN cards c ON fa.card_id = c.card_id
+                JOIN accounts a ON c.account_id = a.account_id
+                JOIN customers cust ON a.customer_id = cust.customer_id
+                ORDER BY fa.created_at DESC LIMIT 10;
+            """)
+            alerts = cur.fetchall()
+            print(f"\n{'ID':<5} {'Holder':<18} {'Type':<20} {'Severity':<10} {'Speed (km/h)':<14} {'Action'}")
+            print("-" * 80)
+            for a in alerts:
+                sev_color = RED if a["severity"] == "CRITICAL" else (YELLOW if a["severity"] == "HIGH" else CYAN)
+                speed_str = f"{a['calculated_velocity_kmh']:.1f} km/h" if a["calculated_velocity_kmh"] else "N/A"
+                print(f"#{a['alert_id']:<4} {a['customer_name']:<18} {a['alert_type']:<20} {sev_color}{a['severity']:<10}{RESET} {speed_str:<14} {a['action_taken']}")
+
+        elif choice == "2":
+            cur.execute("""
+                SELECT atm_id, location_description, city, latitude, longitude, current_cash_level, status
+                FROM atm_machines ORDER BY atm_id;
+            """)
+            terminals = cur.fetchall()
+            print(f"\n{'ID':<8} {'City':<12} {'Location':<24} {'Coordinates':<24} {'Cash':<12} {'Status'}")
+            print("-" * 85)
+            for t in terminals:
+                coords = f"{t['latitude']:.4f}°N, {t['longitude']:.4f}°E"
+                c_status = GREEN if t["status"] == "ONLINE" else RED
+                print(f"ATM-{t['atm_id']:02d}   {t['city']:<12} {t['location_description']:<24} {coords:<24} ₹{t['current_cash_level']:<11,.2f} {c_status}{t['status']}{RESET}")
+
+        elif choice in ["3", "4", "5"]:
+            # Quick CLI simulation
+            attack_types = {"3": "IMPOSSIBLE_TRAVEL", "4": "FREQUENCY_BURST", "5": "OUTLIER_AMOUNT"}
+            atk = attack_types[choice]
+            print(f"\n{YELLOW}Triggering simulation: {atk}...{RESET}")
+            try:
+                from app import app
+                client = app.test_client()
+                res = client.post("/api/fraud/simulate", json={"attack_type": atk, "card_id": 2})
+                resp_json = res.get_json()
+                if resp_json.get("success"):
+                    print(f"{RED}{BOLD}🚨 [ALERT TRIGGERED]{RESET} {resp_json['message']}")
+                    print(f"Forensics: {resp_json['details'].get('details')}")
+                else:
+                    print(f"{YELLOW}{resp_json.get('message')}{RESET}")
+            except Exception as e:
+                print(f"{RED}Simulation error: {e}{RESET}")
+
+        elif choice == "0":
+            break
+
 def main():
     conn = get_db()
     banner()
@@ -508,16 +646,18 @@ def main():
         while True:
             print(f"\n{BOLD}═══════════════════════════════════════════════════")
             print(f"  🏧 MAIN ATM MENU  |  {card['first_name']} {card['last_name']} ({card['account_type']})")
-            print("═══════════════════════════════════════════════════" + RESET)
+            print(f"  📍 Location: {CYAN}ATM-{CURRENT_ATM['id']:02d} ({CURRENT_ATM['city']} - {CURRENT_ATM['loc']}){RESET}")
+            print(f"═══════════════════════════════════════════════════{RESET}")
             print("  [1] 💰 Check Balance")
             print("  [2] 💵 Withdraw Cash")
             print("  [3] 📥 Deposit Cash")
             print("  [4] 🔄 Inter-Account Fund Transfer")
             print("  [5] 📜 Mini-Statement")
             print("  [6] 🔑 Change PIN")
+            print("  [T] 📍 Switch Physical ATM Terminal Location")
             print("  [0] ⏏️  Eject Card / Exit")
 
-            choice = input(f"\n{BOLD}Enter option (0-6) > {RESET}").strip()
+            choice = input(f"\n{BOLD}Enter option (0-6, T) > {RESET}").strip()
 
             if choice == "1":
                 check_balance(conn, card)
@@ -531,6 +671,8 @@ def main():
                 mini_statement(conn, card)
             elif choice == "6":
                 change_pin(conn, card)
+            elif choice.upper() == "T":
+                switch_atm_terminal(conn)
             elif choice == "0":
                 print(f"\n{GREEN}⏏️  Card ejected. Please take your card. Thank you!{RESET}\n")
                 break
