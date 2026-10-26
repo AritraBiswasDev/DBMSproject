@@ -1267,6 +1267,131 @@
             border: 1px solid rgba(245, 158, 11, 0.25);
             font-weight: 700;
         }
+
+        /* Cryptographic Tamper Ledger & Merkle Chaining Styles */
+        .ledger-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .ledger-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .ledger-status-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.1rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .status-banner-intact {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.05));
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+
+        .status-banner-corrupted {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.08));
+            border: 1px solid rgba(239, 68, 68, 0.6);
+            color: #f87171;
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
+            animation: pulse 1.8s infinite;
+        }
+
+        .rogue-dba-sandbox {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .rogue-dba-sandbox::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f59e0b, #ef4444, #f59e0b);
+        }
+
+        .blockchain-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .block-card {
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .block-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .block-card.block-valid {
+            border-left: 5px solid #10b981;
+        }
+
+        .block-card.block-corrupted {
+            border-left: 5px solid #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .chain-connector-wire {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 0.25rem 0;
+        }
+
+        .chain-connector-wire.wire-broken {
+            color: #f87171;
+            font-weight: 800;
+        }
+
+        .hash-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #94a3b8;
+            word-break: break-all;
+        }
+
+        .hash-code.entry-hash-val {
+            color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -1293,6 +1418,9 @@
             </button>
             <button class="nav-btn" onclick="switchView('cash-prediction')">
                 <span>🚚</span> Predictive Cash & Logistics
+            </button>
+            <button class="nav-btn" onclick="switchView('ledger')">
+                <span>⛓️</span> Cryptographic Ledger
             </button>
         </nav>
 
@@ -2059,6 +2187,173 @@
             </div>
         </section>
 
+        <!-- ================================================================== -->
+        <!-- VIEW 5: CRYPTOGRAPHIC TAMPER-PROOF AUDIT LEDGER (DBMS NOVELTY)     -->
+        <!-- ================================================================== -->
+        <section id="ledger-view" class="view-section">
+            <div class="ledger-dashboard">
+
+                <!-- Academic Novelty Banner -->
+                <div class="academic-callout" style="border-left-color: #38bdf8;">
+                    <div class="academic-callout-title">
+                        <span>⛓️</span> DBMS Novelty 3: In-Database Cryptographic Tamper-Proof Audit Trail (Merkle Hash Chaining in SQL)
+                    </div>
+                    <p class="academic-callout-text">
+                        <strong>The Rogue DBA & Insider Threat Defense:</strong> Conventional databases have no defense against a privileged administrator running <code>UPDATE transactions SET amount = 9999 WHERE transaction_id = 1002;</code>. 
+                        In this architecture, every transaction stores a mathematically chained <code>prev_hash</code> (pointing to the prior row's SHA-256) and a deterministic row payload <code>entry_hash</code>. 
+                        Using SQLite window function <code>LAG(entry_hash) OVER (ORDER BY transaction_id)</code>, unauthorized alterations are detected instantaneously without needing full database backups!
+                    </p>
+                </div>
+
+                <!-- Ledger Audit Status Banner -->
+                <div id="ledgerStatusBanner" class="ledger-status-banner status-banner-intact">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span id="ledgerStatusIcon" style="font-size: 1.6rem;">🛡️</span>
+                        <div>
+                            <div id="ledgerStatusTitle" style="font-size: 1.05rem; font-weight: 800; letter-spacing: 0.03em;">
+                                100% CRYPTOGRAPHICALLY SECURE & VERIFIED
+                            </div>
+                            <div id="ledgerStatusSubtitle" style="font-size: 0.8rem; font-weight: 500; opacity: 0.85;">
+                                Genesis Seed anchored at Block #1001 • All SHA-256 Merkle links mathematically intact
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn-action-small" style="background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; color: #38bdf8;" onclick="runLedgerAudit()">
+                            🔍 Run Full Audit Scan
+                        </button>
+                        <button class="btn-action-small" style="background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #10b981;" onclick="restoreLedger()">
+                            🛡️ Restore Genuine State
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ledger Metrics KPI Grid -->
+                <div class="ledger-kpi-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">TOTAL LEDGER BLOCKS</div>
+                        <div class="metric-value" id="ledgerTotalBlocks">32</div>
+                        <div class="metric-sub">Chained Transaction Entries</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">VERIFIED BLOCKS</div>
+                        <div class="metric-value" style="color: #34d399;" id="ledgerVerifiedBlocks">32</div>
+                        <div class="metric-sub">Mathematically Valid Links</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">BROKEN LINKS / TAMPERED</div>
+                        <div class="metric-value" style="color: #f87171;" id="ledgerCorruptedBlocks">0</div>
+                        <div class="metric-sub" id="ledgerCorruptedSub">Zero Corruptions</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">LEDGER INTEGRITY %</div>
+                        <div class="metric-value" style="color: #38bdf8;" id="ledgerIntegrityPct">100.0%</div>
+                        <div class="metric-sub">Window Hash Alignment</div>
+                    </div>
+                </div>
+
+                <!-- Interactive Rogue DBA Attack Sandbox -->
+                <div class="rogue-dba-sandbox">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>⚡</span> ROGUE DBA ATTACK SIMULATOR (Live Database Tamper Test)
+                        </div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace;">
+                            Simulates Direct SQL UPDATE Without Cryptographic Hash Re-signing
+                        </div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 1rem; line-height: 1.5;">
+                        Choose a target block below to secretly alter its financial amount directly in the database. 
+                        Watch the engine's pure SQL window verification detect the discrepancy immediately!
+                    </p>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 0.3rem;">
+                                TARGET BLOCK (TRANSACTION):
+                            </label>
+                            <select id="tamperBlockSelect" style="width: 100%; background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 8px; padding: 0.5rem; font-size: 0.85rem; font-weight: 700;">
+                                <option value="1002">Block #1002: Withdrawal ₹200.00 (Customer 101)</option>
+                                <option value="1001">Block #1001: Genesis Deposit ₹1,000.00</option>
+                                <option value="1004">Block #1004: Withdrawal ₹300.00 (Customer 103)</option>
+                                <option value="1006">Block #1006: Withdrawal ₹500.00 (Customer 104)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1; min-width: 180px;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 0.3rem;">
+                                UNAUTHORIZED TAMPER AMOUNT:
+                            </label>
+                            <input type="number" id="tamperAmountInput" value="9999.00" step="100" style="width: 100%; background: #1e293b; color: #f87171; border: 1px solid #ef4444; border-radius: 8px; padding: 0.5rem; font-size: 0.95rem; font-weight: 800; font-family: 'JetBrains Mono', monospace;">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="dispatch-btn" style="background: linear-gradient(135deg, #ef4444, #b91c1c); width: auto; padding: 0.55rem 1.2rem;" onclick="simulateRogueTamper()">
+                                ⚡ Execute Rogue DBA Tamper
+                            </button>
+                            <button class="dispatch-btn" style="background: linear-gradient(135deg, #10b981, #059669); width: auto; padding: 0.55rem 1.2rem;" onclick="restoreLedger()">
+                                🛡️ Restore & Reseal Chain
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two Column Layout: Blockchain Explorer (Left) & Forensic Audit Logs (Right) -->
+                <div class="admin-grid" style="grid-template-columns: 3fr 2fr;">
+                    
+                    <!-- Left: Interactive Blockchain Block Explorer -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <span>⛓️ Visual Blockchain Block Explorer (SHA-256 Hash Chain)</span>
+                            <span style="font-size: 0.8rem; color: #38bdf8;" id="blockExplorerCount">32 Blocks Loaded</span>
+                        </div>
+                        <div class="blockchain-timeline" id="blockchainTimeline">
+                            <!-- Populated dynamically via fetchLedgerBlocks() -->
+                        </div>
+                    </div>
+
+                    <!-- Right: Forensic Incident Logs & SQL Formula -->
+                    <div class="panel-box">
+                        <div class="panel-header">
+                            <span>📋 Forensic Incident Audit Log</span>
+                            <span style="font-size: 0.8rem; color: #f59e0b;">Table: ledger_tamper_log</span>
+                        </div>
+                        <div style="overflow-x: auto; max-height: 260px; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Log ID</th>
+                                        <th>Block</th>
+                                        <th>Severity</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ledgerTamperLogBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pure SQL Formula Card -->
+                        <div style="margin-top: 1.25rem; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 0.85rem;">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; margin-bottom: 0.4rem;">
+                                📐 Pure SQL Verification Formula (Window Analytic Query):
+                            </div>
+                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #cbd5e1; background: #0f172a; padding: 0.6rem; border-radius: 6px; line-height: 1.4;">
+                                LAG(entry_hash, 1, '0000...0000')<br>
+                                &nbsp;&nbsp;OVER (ORDER BY transaction_id) AS expected_prev_hash,<br>
+                                CASE<br>
+                                &nbsp;&nbsp;WHEN prev_hash = LAG(entry_hash) OVER (...)<br>
+                                &nbsp;&nbsp;THEN 'VALID_BLOCK'<br>
+                                &nbsp;&nbsp;ELSE 'TAMPERED_BROKEN_CHAIN'<br>
+                                END AS chain_integrity_status
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
     </main>
 
     <!-- Thermal Paper Receipt Overlay -->
@@ -2182,6 +2477,10 @@
                 document.querySelectorAll('.nav-btn')[3].classList.add('active');
                 document.getElementById('cash-prediction-view').classList.add('active');
                 fetchCashForecast();
+            } else if (viewName === 'ledger') {
+                document.querySelectorAll('.nav-btn')[4].classList.add('active');
+                document.getElementById('ledger-view').classList.add('active');
+                loadLedgerData();
             }
         }
 
@@ -3273,6 +3572,213 @@
             resultBox.style.display = 'block';
             resultBox.style.borderLeftColor = color;
             content.innerHTML = `<span style="color: ${color}; font-weight: 700;">${msg}</span>`;
+        }
+
+        // =====================================================================
+        // CRYPTOGRAPHIC TAMPER LEDGER CONTROLLER
+        // =====================================================================
+        async function loadLedgerData() {
+            await Promise.all([
+                fetchLedgerBlocks(),
+                runLedgerAudit(false)
+            ]);
+        }
+
+        async function fetchLedgerBlocks() {
+            try {
+                const res = await fetch('/api/ledger/blocks?limit=40');
+                const data = await res.json();
+                if (!data.success) return;
+
+                // Update KPIs
+                const s = data.summary;
+                document.getElementById('ledgerTotalBlocks').innerText = s.total_blocks;
+                document.getElementById('ledgerVerifiedBlocks').innerText = s.verified_blocks;
+                document.getElementById('ledgerCorruptedBlocks').innerText = s.corrupted_blocks;
+                document.getElementById('ledgerIntegrityPct').innerText = `${s.chain_integrity_pct}%`;
+                document.getElementById('blockExplorerCount').innerText = `${data.blocks.length} Blocks Rendered`;
+
+                if (s.corrupted_blocks > 0) {
+                    document.getElementById('ledgerCorruptedSub').innerText = '🚨 Integrity Compromised!';
+                    document.getElementById('ledgerCorruptedSub').style.color = '#f87171';
+                } else {
+                    document.getElementById('ledgerCorruptedSub').innerText = 'Zero Corruptions';
+                    document.getElementById('ledgerCorruptedSub').style.color = '#94a3b8';
+                }
+
+                // Render Blocks Timeline
+                const container = document.getElementById('blockchainTimeline');
+                container.innerHTML = "";
+
+                data.blocks.forEach((b, idx) => {
+                    const isGenesis = b.is_genesis;
+                    const isValid = (b.chain_integrity_status === 'VALID_BLOCK');
+
+                    const blockEl = document.createElement('div');
+                    blockEl.className = `block-card ${isValid ? 'block-valid' : 'block-corrupted'}`;
+
+                    blockEl.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <span style="font-weight: 800; font-size: 0.95rem; color: #fff;">
+                                    ${isGenesis ? '🌱 GENESIS BLOCK #1001' : `📦 BLOCK #${b.block_id}`}
+                                </span>
+                                <span class="badge ${b.status === 'SUCCESS' ? 'badge-active' : 'badge-blocked'}" style="font-size: 0.7rem;">
+                                    ${b.transaction_type}
+                                </span>
+                                <span style="font-weight: 700; color: #38bdf8; font-size: 0.9rem;">
+                                    ₹${b.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                </span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 0.72rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace;">
+                                    ${b.timestamp}
+                                </span>
+                                <span style="font-size: 0.75rem; font-weight: 800; color: ${isValid ? '#34d399' : '#f87171'};">
+                                    ${isValid ? '✅ VALID' : '🚨 CORRUPTED'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Hashes Display -->
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.4rem; font-size: 0.75rem; margin-top: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="color: #64748b; font-weight: 700; min-width: 80px;">prev_hash:</span>
+                                <span class="hash-code" title="${b.prev_hash}">${b.prev_hash_short}</span>
+                                ${isGenesis ? '<span style="font-size: 0.7rem; color: #a7f3d0; font-weight: 700;">(Genesis Zero Anchor)</span>' : ''}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="color: #38bdf8; font-weight: 700; min-width: 80px;">entry_hash:</span>
+                                <span class="hash-code entry-hash-val" title="${b.entry_hash}">${b.entry_hash_short}</span>
+                            </div>
+                            ${!isValid ? `
+                                <div style="margin-top: 0.3rem; padding: 0.4rem 0.6rem; background: rgba(239, 68, 68, 0.15); border-radius: 6px; color: #fca5a5; font-size: 0.75rem;">
+                                    💥 <strong>CHAIN MISMATCH:</strong> Row payload re-hashes to <code>${b.recalculated_hash.slice(0, 16)}...</code> which does NOT match stored entry_hash!
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    container.appendChild(blockEl);
+
+                    if (idx < data.blocks.length - 1) {
+                        const nextBlock = data.blocks[idx + 1];
+                        const isWireIntact = (nextBlock.prev_hash === b.entry_hash);
+                        const wireEl = document.createElement('div');
+                        wireEl.className = `chain-connector-wire ${isWireIntact ? '' : 'wire-broken'}`;
+                        wireEl.innerHTML = isWireIntact 
+                            ? `<span>⛓️ SHA-256 Merkle Link Valid ➔</span>` 
+                            : `<span>💥 BROKEN LINK: Block #${nextBlock.block_id} prev_hash mismatch! ➔</span>`;
+                        container.appendChild(wireEl);
+                    }
+                });
+
+            } catch (err) {
+                console.error("Error fetching ledger blocks:", err);
+            }
+        }
+
+        async function runLedgerAudit(playSound = true) {
+            try {
+                const res = await fetch('/api/ledger/verify');
+                const data = await res.json();
+                if (!data.success) return;
+
+                const banner = document.getElementById('ledgerStatusBanner');
+                const title = document.getElementById('ledgerStatusTitle');
+                const sub = document.getElementById('ledgerStatusSubtitle');
+                const icon = document.getElementById('ledgerStatusIcon');
+
+                if (data.is_intact) {
+                    if (playSound) playBeep(1000, 0.15);
+                    banner.className = 'ledger-status-banner status-banner-intact';
+                    icon.innerText = '🛡️';
+                    title.innerText = '100% CRYPTOGRAPHICALLY SECURE & VERIFIED';
+                    title.style.color = '#34d399';
+                    sub.innerText = `Full audit scan passed at ${data.audit_timestamp} • All ${data.total_blocks_audited} blocks cryptographically unbroken`;
+                } else {
+                    if (playSound) playBeep(200, 0.4);
+                    banner.className = 'ledger-status-banner status-banner-corrupted';
+                    icon.innerText = '🚨';
+                    title.innerText = `TAMPER ALERT: ${data.corrupted_count} CORRUPTED BLOCK(S) DETECTED!`;
+                    title.style.color = '#f87171';
+                    sub.innerText = `Window verification detected hash discontinuity at Block #${data.broken_blocks[0]?.block_id || '---'}. Ledger integrity compromised!`;
+                }
+
+                renderTamperLogs(data.tamper_logs || []);
+                updateSqlLogs();
+            } catch (err) {
+                console.error("Error running audit:", err);
+            }
+        }
+
+        function renderTamperLogs(logs) {
+            const tbody = document.getElementById('ledgerTamperLogBody');
+            if (!tbody) return;
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #64748b;">No forensic incidents recorded. Ledger is clean.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">#${l.log_id}</td>
+                    <td style="font-weight: 700; color: #38bdf8;">#${l.tampered_transaction_id || '---'}</td>
+                    <td><span class="badge ${l.tamper_severity === 'CRITICAL' ? 'badge-blocked' : 'badge-active'}">${l.tamper_severity}</span></td>
+                    <td style="font-size: 0.75rem; color: #cbd5e1;">${l.action_taken}</td>
+                    <td style="font-size: 0.75rem; color: #94a3b8; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${l.incident_details || ''}">
+                        ${l.incident_details || 'N/A'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function simulateRogueTamper() {
+            const blockId = document.getElementById('tamperBlockSelect').value;
+            const amount = parseFloat(document.getElementById('tamperAmountInput').value) || 9999.0;
+            playBeep(300, 0.25);
+
+            try {
+                const res = await fetch('/api/ledger/simulate-tamper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transaction_id: parseInt(blockId),
+                        amount: amount
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    await loadLedgerData();
+                    playBeep(220, 0.3);
+                }
+            } catch (err) {
+                console.error("Error simulating tamper:", err);
+            }
+        }
+
+        async function restoreLedger() {
+            const blockId = document.getElementById('tamperBlockSelect').value;
+            playBeep(900, 0.15);
+
+            try {
+                const res = await fetch('/api/ledger/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transaction_id: parseInt(blockId)
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    await loadLedgerData();
+                    playBeep(1200, 0.2);
+                }
+            } catch (err) {
+                console.error("Error restoring ledger:", err);
+            }
         }
 
         // Global Keyboard Handler (Keys 0-9, Enter, Backspace, Escape)

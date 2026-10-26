@@ -13,6 +13,7 @@
 -- ============================================================================
 
 -- Drop existing tables in reverse dependency order to avoid FK constraint errors
+DROP TABLE IF EXISTS ledger_tamper_log;
 DROP TABLE IF EXISTS cash_replenishments;
 DROP TABLE IF EXISTS fraud_alerts;
 DROP TABLE IF EXISTS transactions;
@@ -142,6 +143,8 @@ CREATE TABLE transactions (
     status                  VARCHAR(15)    NOT NULL DEFAULT 'SUCCESS'
                                            CHECK (status IN ('SUCCESS', 'PENDING', 'FAILED', 'REVERSED')),
     description             VARCHAR(255),
+    prev_hash               VARCHAR(64)    NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+    entry_hash              VARCHAR(64)    NOT NULL DEFAULT 'GENESIS_BLOCK_HASH_INIT',
     transaction_timestamp   TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_trans_source_account
         FOREIGN KEY (account_id)
@@ -241,5 +244,26 @@ CREATE TABLE cash_replenishments (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
+
+-- ----------------------------------------------------------------------------
+-- Table 8: LEDGER_TAMPER_LOG
+-- Forensic audit ledger capturing cryptographic chain breaks, unauthorized
+-- payload modifications, and rogue DBA updates.
+-- ----------------------------------------------------------------------------
+CREATE TABLE ledger_tamper_log (
+    log_id                  INTEGER PRIMARY KEY,
+    detected_at             TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    tampered_transaction_id INTEGER,
+    expected_prev_hash      VARCHAR(64),
+    actual_prev_hash        VARCHAR(64),
+    stored_entry_hash       VARCHAR(64),
+    recalculated_hash       VARCHAR(64),
+    tamper_severity         VARCHAR(15)    NOT NULL DEFAULT 'CRITICAL'
+                                           CHECK (tamper_severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    incident_details        TEXT,
+    action_taken            VARCHAR(50)    NOT NULL DEFAULT 'SECURITY_ALERT_LOGGED'
+                                           CHECK (action_taken IN ('SECURITY_ALERT_LOGGED', 'CHAIN_HALTED', 'RESTORED_FROM_CHECKPOINT'))
+);
+
 
 

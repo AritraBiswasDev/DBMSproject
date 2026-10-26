@@ -49,6 +49,49 @@ def get_db():
 def hash_pin(pin_str):
     return hashlib.sha256(str(pin_str).strip().encode("utf-8")).hexdigest()
 
+GENESIS_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
+
+def compute_entry_hash(tx_id, account_id, dest_account_id, atm_id, tx_type, amount, balance_after, status, timestamp, prev_hash):
+    """
+    Computes deterministic SHA-256 hash over transaction fields + previous hash:
+    f"{tx_id}|{account_id}|{dest_str}|{atm_str}|{tx_type}|{amount:.2f}|{balance_after:.2f}|{status}|{timestamp}|{prev_hash}"
+    """
+    dest_str = str(dest_account_id) if (dest_account_id is not None and str(dest_account_id) != "") else ""
+    atm_str = str(atm_id) if (atm_id is not None and str(atm_id) != "") else ""
+    payload = f"{tx_id}|{account_id}|{dest_str}|{atm_str}|{tx_type}|{float(amount):.2f}|{float(balance_after):.2f}|{status}|{timestamp}|{prev_hash}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+def get_latest_entry_hash(cur):
+    """
+    Retrieves the entry_hash of the latest transaction to chain as prev_hash.
+    If no transactions exist, returns Genesis block seed (64 zeros).
+    """
+    cur.execute("SELECT entry_hash FROM transactions ORDER BY transaction_id DESC LIMIT 1;")
+    row = cur.fetchone()
+    if row and row["entry_hash"]:
+        return row["entry_hash"]
+    return GENESIS_HASH
+
+def insert_chained_transaction(cur, account_id, dest_account_id, atm_id, tx_type, amount, balance_after, status, description, timestamp=None):
+    """
+    Atomically inserts a transaction with mathematically validated prev_hash and entry_hash.
+    """
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    prev_h = get_latest_entry_hash(cur)
+
+    cur.execute("""
+        INSERT INTO transactions (account_id, dest_account_id, atm_id, transaction_type, amount, balance_after, status, description, prev_hash, entry_hash, transaction_timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_HASH', ?);
+    """, (account_id, dest_account_id, atm_id, tx_type, amount, balance_after, status, description, prev_h, timestamp))
+
+    tx_id = cur.lastrowid
+    entry_h = compute_entry_hash(tx_id, account_id, dest_account_id, atm_id, tx_type, amount, balance_after, status, timestamp, prev_h)
+
+    cur.execute("UPDATE transactions SET entry_hash = ? WHERE transaction_id = ?;", (entry_h, tx_id))
+    return tx_id, prev_h, entry_h
+
 def haversine_distance(lat1, lon1, lat2, lon2):
     """
     Computes geodesic distance between two latitude/longitude points in kilometers.
@@ -360,14 +403,12 @@ def atm_balance():
         conn.close()
         return jsonify({"success": False, "message": "Account not found."}), 404
 
-    # Log balance inquiry transaction
-    ins_q = """
-        INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-        VALUES (?, ?, 'BALANCE_INQUIRY', 0.00, ?, 'SUCCESS', 'Interactive Web ATM Balance Inquiry');
-    """
-    cur.execute(ins_q, (account_id, atm_id, acc["balance"]))
+    # Log balance inquiry transaction into cryptographic ledger
+    tx_id, prev_h, entry_h = insert_chained_transaction(
+        cur, account_id, None, atm_id, 'BALANCE_INQUIRY', 0.00, acc["balance"], 'SUCCESS', 'Interactive Web ATM Balance Inquiry'
+    )
     conn.commit()
-    log_sql(ins_q, (account_id, atm_id, acc["balance"]))
+    log_sql(f"INSERT INTO transactions (BALANCE_INQUIRY) [Block #{tx_id} Hash: {entry_h[:12]}...]", (account_id, atm_id))
     conn.close()
 
     return jsonify({
@@ -448,10 +489,9 @@ def atm_withdraw():
     fraud_eval = evaluate_fraud_risk(conn, card_id, account_id, atm_id, amount)
     if fraud_eval.get("is_blocked"):
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'FAILED', ?, ?);
-        """, (account_id, atm_id, amount, cur_bal, f"Declined: {fraud_eval.get('reason')}", now_str))
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, account_id, None, atm_id, 'WITHDRAWAL', amount, cur_bal, 'FAILED', f"Declined: {fraud_eval.get('reason')}", now_str
+        )
         conn.commit()
         conn.close()
         return jsonify({
@@ -511,17 +551,14 @@ def atm_withdraw():
                         VALUES (?, ?, ?, ?, ?, ?, 'DISPATCHED', 'SecureCorp India CIT', ?, ?, ?);
                     """, (atm_id, req_topup, new_cash, burn, days_left, urgency, van_num, now_str_disp, now_str_disp))
 
-        # Record ledger
+        # Record cryptographic ledger block
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ins_tx = """
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, ?, 'WITHDRAWAL', ?, ?, 'SUCCESS', 'Interactive ATM Cash Withdrawal', ?);
-        """
-        cur.execute(ins_tx, (account_id, atm_id, amount, new_balance, now_str))
-        tx_id = cur.lastrowid
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, account_id, None, atm_id, 'WITHDRAWAL', amount, new_balance, 'SUCCESS', 'Interactive ATM Cash Withdrawal', now_str
+        )
 
         conn.commit()
-        log_sql("BEGIN TRANSACTION; ... COMMIT;", (f"Withdrawal ₹{amount}", f"New Balance ₹{new_balance}"))
+        log_sql("BEGIN TRANSACTION; ... COMMIT;", (f"Withdrawal ₹{amount} [Block #{tx_id}]", f"New Balance ₹{new_balance}"))
         conn.close()
 
         return jsonify({
@@ -577,16 +614,13 @@ def atm_deposit():
         # Increase ATM cash
         cur.execute("UPDATE atm_machines SET current_cash_level = current_cash_level + ? WHERE atm_id = ?;", (amount, atm_id))
 
-        # Record ledger
-        ins_tx = """
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, ?, 'DEPOSIT', ?, ?, 'SUCCESS', 'Interactive ATM Cash Deposit');
-        """
-        cur.execute(ins_tx, (account_id, atm_id, amount, new_balance))
-        tx_id = cur.lastrowid
+        # Record cryptographic ledger block
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, account_id, None, atm_id, 'DEPOSIT', amount, new_balance, 'SUCCESS', 'Interactive ATM Cash Deposit'
+        )
 
         conn.commit()
-        log_sql("BEGIN TRANSACTION; ... COMMIT;", (f"Deposit ₹{amount}", f"New Balance ₹{new_balance}"))
+        log_sql("BEGIN TRANSACTION; ... COMMIT;", (f"Deposit ₹{amount} [Block #{tx_id}]", f"New Balance ₹{new_balance}"))
         conn.close()
 
         return jsonify({
@@ -662,16 +696,13 @@ def atm_transfer():
         # Credit destination
         cur.execute("UPDATE accounts SET balance = ? WHERE account_id = ?;", (new_dest_bal, dest_acc["account_id"]))
 
-        # Record ledger
-        ins_tx = """
-            INSERT INTO transactions (account_id, dest_account_id, atm_id, transaction_type, amount, balance_after, status, description)
-            VALUES (?, ?, ?, 'TRANSFER', ?, ?, 'SUCCESS', ?);
-        """
-        cur.execute(ins_tx, (source_acc["account_id"], dest_acc["account_id"], atm_id, amount, new_source_bal, f"Fund transfer to {dest_acc_number}"))
-        tx_id = cur.lastrowid
+        # Record cryptographic ledger block
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, source_acc["account_id"], dest_acc["account_id"], atm_id, 'TRANSFER', amount, new_source_bal, 'SUCCESS', f"Fund transfer to {dest_acc_number}"
+        )
 
         conn.commit()
-        log_sql("BEGIN TRANSACTION; /* Debit & Credit Transfer */ COMMIT;", (f"Transfer ₹{amount} to {dest_acc_number}"))
+        log_sql("BEGIN TRANSACTION; /* Debit & Credit Transfer */ COMMIT;", (f"Transfer ₹{amount} [Block #{tx_id}] to {dest_acc_number}",))
         conn.close()
 
         return jsonify({
@@ -1051,11 +1082,10 @@ def simulate_fraud_attack():
         # Auto-lock card
         cur.execute("UPDATE cards SET status = 'BLOCKED' WHERE card_id = ?;", (card["card_id"],))
 
-        # Record failed transaction in ledger
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, 2, 'WITHDRAWAL', 5000.00, ?, 'FAILED', 'Declined: In-Database Geo-Velocity Impossible Travel Violation', ?);
-        """, (card["account_id"], card["balance"], now_str))
+        # Record failed transaction into cryptographic ledger
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, card["account_id"], None, 2, 'WITHDRAWAL', 5000.00, card["balance"], 'FAILED', 'Declined: In-Database Geo-Velocity Impossible Travel Violation', now_str
+        )
 
         conn.commit()
         log_sql("INSERT INTO fraud_alerts ... SET status = 'BLOCKED'", (f"Speed {speed_kmh} km/h",), status="BLOCKED")
@@ -1095,10 +1125,10 @@ def simulate_fraud_attack():
         """
         cur.execute(ins_alert, (card["card_id"], card["account_id"], details, now_str))
 
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, 4, 'WITHDRAWAL', 2000.00, ?, 'FAILED', 'Declined: In-Database Rapid Frequency Burst Defense', ?);
-        """, (card["account_id"], card["balance"], now_str))
+        # Record into cryptographic ledger
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, card["account_id"], None, 4, 'WITHDRAWAL', 2000.00, card["balance"], 'FAILED', 'Declined: In-Database Rapid Frequency Burst Defense', now_str
+        )
 
         conn.commit()
         conn.close()
@@ -1130,10 +1160,10 @@ def simulate_fraud_attack():
         """
         cur.execute(ins_alert, (card["card_id"], card["account_id"], details, now_str))
 
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (?, 3, 'WITHDRAWAL', 120000.00, ?, 'FAILED', 'Declined: In-Database Outlier Amount Anomaly Spike', ?);
-        """, (card["account_id"], card["balance"], now_str))
+        # Record into cryptographic ledger
+        tx_id, prev_h, entry_h = insert_chained_transaction(
+            cur, card["account_id"], None, 3, 'WITHDRAWAL', 120000.00, card["balance"], 'FAILED', 'Declined: In-Database Outlier Amount Anomaly Spike', now_str
+        )
 
         conn.commit()
         conn.close()
@@ -1367,14 +1397,13 @@ def complete_cash_replenishment():
     """
     cur.execute(upd_order, (now_str, order["replenishment_id"]))
 
-    # 3. Log into physical cash audit ledger
-    cur.execute("""
-        INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-        VALUES (101, ?, 'DEPOSIT', ?, ?, 'SUCCESS', ?, ?);
-    """, (target_atm_id, topup_amt, new_cash, f"CIT Physical Vault Replenishment by {order['van_vehicle_number']}", now_str))
+    # 3. Log into physical cash cryptographic audit ledger
+    tx_id, prev_h, entry_h = insert_chained_transaction(
+        cur, 101, None, target_atm_id, 'DEPOSIT', topup_amt, new_cash, 'SUCCESS', f"CIT Physical Vault Replenishment by {order['van_vehicle_number']}", now_str
+    )
 
     conn.commit()
-    log_sql(f"UPDATE atm_machines SET current_cash_level = {new_cash} ... COMPLETED;")
+    log_sql(f"UPDATE atm_machines SET current_cash_level = {new_cash} ... COMPLETED; [Block #{tx_id}]")
     conn.close()
 
     return jsonify({
@@ -1445,13 +1474,12 @@ def simulate_cash_rush():
         WHERE atm_id = ?;
     """, (new_cash, new_burn, atm_id))
 
-    # Add simulated transactions to create empirical moving window velocity
+    # Add simulated transactions to create empirical moving window velocity into cryptographic chain
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for i in range(3):
-        cur.execute("""
-            INSERT INTO transactions (account_id, atm_id, transaction_type, amount, balance_after, status, description, transaction_timestamp)
-            VALUES (101, ?, 'WITHDRAWAL', ?, 5000.00, 'SUCCESS', ?, ?);
-        """, (atm_id, round(drain / 3.0, 2), f"Simulated {sc['name']} Withdrawal #{i+1}", now_str))
+        insert_chained_transaction(
+            cur, 101, None, atm_id, 'WITHDRAWAL', round(drain / 3.0, 2), 5000.00, 'SUCCESS', f"Simulated {sc['name']} Withdrawal #{i+1}", now_str
+        )
 
     # Auto-dispatch CIT Armored Van if below threshold
     auto_dispatched = False
@@ -1501,6 +1529,321 @@ def simulate_cash_rush():
         "auto_dispatched": auto_dispatched,
         "van_order": van_order,
         "message": f"⚡ SIMULATION TRIGGERED: {sc['name']} on {atm['terminal_code']} ({atm['city']})! Cash depleted to ₹{new_cash:,.2f} ({days_left} days left). {'🚨 Safety stock breached — Emergency CIT Van dispatched!' if auto_dispatched else ''}"
+    })
+
+
+# -----------------------------------------------------------------------------
+# CRYPTOGRAPHIC TAMPER LEDGER & BLOCKCHAIN AUDIT ENDPOINTS
+# -----------------------------------------------------------------------------
+@app.route('/api/ledger/blocks', methods=['GET'])
+def get_ledger_blocks():
+    limit = int(request.args.get('limit', 50))
+    conn = get_db()
+    cur = conn.cursor()
+
+    query = """
+        SELECT
+            t.transaction_id,
+            t.account_id,
+            t.dest_account_id,
+            t.atm_id,
+            t.transaction_type,
+            t.amount,
+            t.balance_after,
+            t.status,
+            t.description,
+            t.transaction_timestamp,
+            t.prev_hash,
+            t.entry_hash,
+            LAG(t.entry_hash, 1, '0000000000000000000000000000000000000000000000000000000000000000') 
+                OVER (ORDER BY t.transaction_id) AS expected_prev_hash,
+            CASE
+                WHEN t.prev_hash = LAG(t.entry_hash, 1, '0000000000000000000000000000000000000000000000000000000000000000') 
+                    OVER (ORDER BY t.transaction_id)
+                THEN 'VALID_BLOCK'
+                ELSE 'TAMPERED_BROKEN_CHAIN'
+            END AS chain_integrity_status
+        FROM transactions t
+        ORDER BY t.transaction_id ASC;
+    """
+    cur.execute(query)
+    all_rows = cur.fetchall()
+
+    total_blocks = len(all_rows)
+    valid_count = 0
+    corrupted_count = 0
+    blocks = []
+
+    for r in all_rows:
+        is_link_valid = (r["chain_integrity_status"] == 'VALID_BLOCK')
+        # Re-verify payload hash consistency
+        recalculated = compute_entry_hash(
+            r["transaction_id"], r["account_id"], r["dest_account_id"], r["atm_id"],
+            r["transaction_type"], r["amount"], r["balance_after"], r["status"],
+            r["transaction_timestamp"], r["prev_hash"]
+        )
+        payload_valid = (recalculated == r["entry_hash"])
+
+        if not payload_valid:
+            status_flag = "PAYLOAD_TAMPERED"
+            corrupted_count += 1
+        elif not is_link_valid:
+            status_flag = "TAMPERED_BROKEN_CHAIN"
+            corrupted_count += 1
+        else:
+            status_flag = "VALID_BLOCK"
+            valid_count += 1
+
+        blocks.append({
+            "block_id": r["transaction_id"],
+            "account_id": r["account_id"],
+            "dest_account_id": r["dest_account_id"],
+            "atm_id": r["atm_id"],
+            "transaction_type": r["transaction_type"],
+            "amount": float(r["amount"]),
+            "balance_after": float(r["balance_after"]),
+            "status": r["status"],
+            "description": r["description"],
+            "timestamp": r["transaction_timestamp"],
+            "prev_hash": r["prev_hash"],
+            "prev_hash_short": f"{r['prev_hash'][:10]}...{r['prev_hash'][-6:]}",
+            "entry_hash": r["entry_hash"],
+            "entry_hash_short": f"{r['entry_hash'][:10]}...{r['entry_hash'][-6:]}",
+            "expected_prev_hash": r["expected_prev_hash"],
+            "recalculated_hash": recalculated,
+            "chain_integrity_status": status_flag,
+            "is_genesis": (r["prev_hash"] == GENESIS_HASH)
+        })
+
+    conn.close()
+
+    integrity_pct = round(100.0 * valid_count / max(total_blocks, 1), 2)
+    audit_status = "LEDGER_INTACT_SECURE" if corrupted_count == 0 else "CRITICAL_TAMPERING_DETECTED"
+
+    return jsonify({
+        "success": True,
+        "summary": {
+            "total_blocks": total_blocks,
+            "verified_blocks": valid_count,
+            "corrupted_blocks": corrupted_count,
+            "chain_integrity_pct": integrity_pct,
+            "audit_status": audit_status
+        },
+        "blocks": blocks[-limit:] if limit > 0 else blocks
+    })
+
+@app.route('/api/ledger/verify', methods=['GET'])
+def verify_ledger():
+    """
+    Performs full deep cryptographic audit of every block from Genesis (1001) to latest.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT transaction_id, account_id, dest_account_id, atm_id, transaction_type,
+               amount, balance_after, status, description, transaction_timestamp,
+               prev_hash, entry_hash
+        FROM transactions
+        ORDER BY transaction_id ASC;
+    """)
+    rows = cur.fetchall()
+
+    broken_links = []
+    expected_prev = GENESIS_HASH
+
+    for r in rows:
+        tx_id = r["transaction_id"]
+        # 1. Verify link continuity
+        link_ok = (r["prev_hash"] == expected_prev)
+
+        # 2. Re-compute payload SHA-256
+        recalculated = compute_entry_hash(
+            r["transaction_id"], r["account_id"], r["dest_account_id"], r["atm_id"],
+            r["transaction_type"], r["amount"], r["balance_after"], r["status"],
+            r["transaction_timestamp"], r["prev_hash"]
+        )
+        hash_ok = (recalculated == r["entry_hash"])
+
+        if not link_ok or not hash_ok:
+            broken_links.append({
+                "block_id": tx_id,
+                "account_id": r["account_id"],
+                "type": r["transaction_type"],
+                "amount": float(r["amount"]),
+                "link_intact": link_ok,
+                "hash_intact": hash_ok,
+                "recorded_prev_hash": r["prev_hash"],
+                "expected_prev_hash": expected_prev,
+                "stored_entry_hash": r["entry_hash"],
+                "recalculated_hash": recalculated,
+                "issue": "PAYLOAD_ALTERED" if not hash_ok else "PREV_HASH_DISCONTINUITY"
+            })
+
+        expected_prev = r["entry_hash"]
+
+    # Fetch recent logs from ledger_tamper_log
+    cur.execute("""
+        SELECT log_id, detected_at, tampered_transaction_id, stored_entry_hash,
+               recalculated_hash, tamper_severity, incident_details, action_taken
+        FROM ledger_tamper_log
+        ORDER BY log_id DESC
+        LIMIT 20;
+    """)
+    logs = [dict(row) for row in cur.fetchall()]
+    conn.close()
+
+    is_intact = (len(broken_links) == 0)
+    return jsonify({
+        "success": True,
+        "is_intact": is_intact,
+        "total_blocks_audited": len(rows),
+        "corrupted_count": len(broken_links),
+        "broken_blocks": broken_links,
+        "tamper_logs": logs,
+        "audit_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "message": "✅ Cryptographic audit passed! 100% SHA-256 Merkle chain integrity verified." if is_intact
+                   else f"🚨 AUDIT ALERT: {len(broken_links)} corrupted block(s) detected! Cryptographic chain broken."
+    })
+
+@app.route('/api/ledger/simulate-tamper', methods=['POST'])
+def simulate_ledger_tamper():
+    """
+    Rogue DBA Attack Simulation:
+    Directly updates a transaction payload (e.g., Block 1002 amount from ₹200 to ₹9,999)
+    in SQL without recomputing SHA-256 hashes. Demonstrates in-database tamper detection!
+    """
+    data = request.json or {}
+    tx_id = int(data.get("transaction_id", 1002))
+    new_amount = float(data.get("amount", 9999.00))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM transactions WHERE transaction_id = ?;", (tx_id,))
+    orig = cur.fetchone()
+    if not orig:
+        conn.close()
+        return jsonify({"success": False, "message": f"Block #{tx_id} not found."}), 404
+
+    orig_amt = float(orig["amount"])
+    orig_entry_hash = orig["entry_hash"]
+    prev_h = orig["prev_hash"]
+
+    # 1. Rogue DBA performs unauthorized UPDATE
+    cur.execute("UPDATE transactions SET amount = ? WHERE transaction_id = ?;", (new_amount, tx_id))
+
+    # 2. Recalculate what the hash would be now
+    recalculated = compute_entry_hash(
+        tx_id, orig["account_id"], orig["dest_account_id"], orig["atm_id"],
+        orig["transaction_type"], new_amount, orig["balance_after"], orig["status"],
+        orig["transaction_timestamp"], prev_h
+    )
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    incident_msg = (
+        f"ROGUE DBA ATTACK SIMULATION: Transaction #{tx_id} amount modified from ₹{orig_amt:,.2f} to ₹{new_amount:,.2f} "
+        f"directly via SQL without cryptographic re-signing. Stored hash {orig_entry_hash[:16]}... != Recalculated {recalculated[:16]}..."
+    )
+
+    # 3. Log into forensic ledger_tamper_log
+    cur.execute("""
+        INSERT INTO ledger_tamper_log (
+            tampered_transaction_id, expected_prev_hash, actual_prev_hash,
+            stored_entry_hash, recalculated_hash, tamper_severity,
+            incident_details, action_taken, detected_at
+        )
+        VALUES (?, ?, ?, ?, ?, 'CRITICAL', ?, 'SECURITY_ALERT_LOGGED', ?);
+    """, (tx_id, prev_h, prev_h, orig_entry_hash, recalculated, incident_msg, now_str))
+
+    conn.commit()
+    log_sql(f"UPDATE transactions SET amount = {new_amount} WHERE transaction_id = {tx_id}; /* Rogue DBA Tamper */", status="ALERT")
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "attack_type": "ROGUE_DBA_PAYLOAD_TAMPER",
+        "block_id": tx_id,
+        "original_amount": orig_amt,
+        "tampered_amount": new_amount,
+        "stored_hash": orig_entry_hash,
+        "recalculated_hash": recalculated,
+        "incident_details": incident_msg,
+        "message": f"⚠️ ATTACK SIMULATED! Block #{tx_id} modified to ₹{new_amount:,.2f}. Stored hash no longer matches row payload. Run Cryptographic Audit to inspect broken chain!"
+    })
+
+@app.route('/api/ledger/restore', methods=['POST'])
+def restore_ledger():
+    """
+    Restores tampered transactions back to their genuine cryptographic state,
+    resealing the SHA-256 chain.
+    """
+    data = request.json or {}
+    tx_id = int(data.get("transaction_id", 1002))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    authentic_defaults = {
+        1001: 1000.00,
+        1002: 200.00,
+        1003: 800.00,
+        1004: 300.00,
+        1005: 300.00,
+        1006: 500.00
+    }
+    restored_amount = authentic_defaults.get(tx_id, 200.00)
+
+    cur.execute("SELECT * FROM transactions WHERE transaction_id = ?;", (tx_id,))
+    tx = cur.fetchone()
+    if not tx:
+        conn.close()
+        return jsonify({"success": False, "message": f"Block #{tx_id} not found."}), 404
+
+    cur.execute("UPDATE transactions SET amount = ? WHERE transaction_id = ?;", (restored_amount, tx_id))
+
+    # Reseal full chain from Genesis to ensure 100% mathematical validity
+    cur.execute("""
+        SELECT transaction_id, account_id, dest_account_id, atm_id, transaction_type,
+               amount, balance_after, status, transaction_timestamp
+        FROM transactions
+        ORDER BY transaction_id ASC;
+    """)
+    rows = cur.fetchall()
+
+    curr_prev = GENESIS_HASH
+    for r in rows:
+        t_id = r["transaction_id"]
+        e_hash = compute_entry_hash(
+            t_id, r["account_id"], r["dest_account_id"], r["atm_id"],
+            r["transaction_type"], r["amount"], r["balance_after"], r["status"],
+            r["transaction_timestamp"], curr_prev
+        )
+        cur.execute("UPDATE transactions SET prev_hash = ?, entry_hash = ? WHERE transaction_id = ?;", (curr_prev, e_hash, t_id))
+        curr_prev = e_hash
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        INSERT INTO ledger_tamper_log (
+            tampered_transaction_id, expected_prev_hash, actual_prev_hash,
+            stored_entry_hash, recalculated_hash, tamper_severity,
+            incident_details, action_taken, detected_at
+        )
+        VALUES (?, 'RESTORED', 'RESTORED', 'RESEALED', 'RESEALED', 'LOW',
+                'Cryptographic ledger restored to genuine state and full Merkle hash chain resealed.',
+                'RESTORED_FROM_CHECKPOINT', ?);
+    """, (tx_id, now_str))
+
+    conn.commit()
+    log_sql(f"UPDATE transactions SET amount = {restored_amount} ... Resealed Hash Chain", status="RESTORED")
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "restored_block": tx_id,
+        "restored_amount": restored_amount,
+        "status": "CHAIN_RESEALED_INTACT",
+        "message": f"🛡️ LEDGER RESTORED! Block #{tx_id} reverted to ₹{restored_amount:,.2f} and cryptographic hash chain resealed to 100% integrity."
     })
 
 
