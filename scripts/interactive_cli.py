@@ -634,6 +634,126 @@ def fraud_radar_cli(conn):
         elif choice == "0":
             break
 
+def predictive_cash_cli(conn):
+    cur = conn.cursor()
+    while True:
+        print(f"\n{CYAN}{BOLD}=================================================================")
+        print("      🚚  PREDICTIVE CASH REPLENISHMENT & LOGISTICS RADAR  🚚      ")
+        print("         Inventory Theory, SQL Window Functions & CIT Orders     ")
+        print(f"================================================================={RESET}")
+
+        cur.execute("""
+            SELECT COUNT(atm_id) AS total_terminals,
+                   ROUND(SUM(current_cash_level), 2) AS total_vault_cash,
+                   ROUND(SUM(cash_capacity), 2) AS total_capacity,
+                   ROUND((SUM(current_cash_level) / SUM(cash_capacity)) * 100.0, 1) AS liquidity_pct,
+                   SUM(CASE WHEN stockout_risk_category IN ('CRITICAL_STOCKOUT', 'OUT_OF_CASH') THEN 1 ELSE 0 END) AS critical_alarms,
+                   SUM(CASE WHEN reorder_triggered = 1 THEN 1 ELSE 0 END) AS reorders_pending
+            FROM v_atm_stockout_forecast;
+        """)
+        s = cur.fetchone()
+
+        cur.execute("SELECT COUNT(*) AS active_vans FROM cash_replenishments WHERE status IN ('DISPATCHED', 'IN_TRANSIT');")
+        vans = cur.fetchone()["active_vans"]
+
+        print(f"\n{BOLD}Network Liquidity Overview:{RESET}")
+        print(f"  • Total Vault Cash:      ₹{s['total_vault_cash']:,.2f} / ₹{s['total_capacity']:,.2f} ({CYAN}{s['liquidity_pct']}% saturation{RESET})")
+        print(f"  • Critical Alarms:       {RED if s['critical_alarms'] > 0 else GREEN}{s['critical_alarms']} terminals{RESET}")
+        print(f"  • Reorders Triggered:    {YELLOW if s['reorders_pending'] > 0 else GREEN}{s['reorders_pending']} terminals{RESET}")
+        print(f"  • CIT Armored Vans:      {YELLOW if vans > 0 else GREEN}{vans} active in transit{RESET}")
+
+        print(f"\n{BOLD}Predictive Logistics Options:{RESET}")
+        print("  [1] 📡 View Live Stockout Forecast & Burn Rates (v_atm_stockout_forecast)")
+        print("  [2] 🚚 View Active CIT Armored Van Manifest (cash_replenishments)")
+        print("  [3] 🚀 Dispatch CIT Armored Security Van (Automatic Top-up)")
+        print("  [4] ⚡ Simulate Festive Diwali Shopping Rush (-₹28,000 cash drain)")
+        print("  [5] ✅ Complete Armored Van Vault Refill (Load physical cash)")
+        print("  [0] Back to Main Menu")
+
+        choice = input(f"\n{BOLD}Select Option > {RESET}").strip()
+
+        if choice == "1":
+            cur.execute("""
+                SELECT atm_id, terminal_code, city, current_cash_level, cash_capacity,
+                       effective_daily_burn, days_to_stockout, hours_to_stockout,
+                       stockout_risk_category, reorder_triggered
+                FROM v_atm_stockout_forecast
+                ORDER BY days_to_stockout ASC;
+            """)
+            terminals = cur.fetchall()
+            print(f"\n{'ID':<4} {'Terminal':<13} {'City':<11} {'Current Cash':<14} {'Capacity':<11} {'Burn/Day':<11} {'Days Left':<11} {'Risk Category':<18} {'Reorder'}")
+            print("-" * 105)
+            for t in terminals:
+                cat = t["stockout_risk_category"]
+                cat_color = RED if cat in ("CRITICAL_STOCKOUT", "OUT_OF_CASH") else (YELLOW if cat == "HIGH_URGENCY" else (CYAN if cat == "MODERATE" else GREEN))
+                reorder_mark = f"{RED}YES{RESET}" if t["reorder_triggered"] else f"{GREEN}NO{RESET}"
+                print(f"#{t['atm_id']:<3} {t['terminal_code']:<13} {t['city']:<11} ₹{t['current_cash_level']:<13,.2f} ₹{t['cash_capacity']:<10,.2f} ₹{t['effective_daily_burn']:<10,.2f} {t['days_to_stockout']:<10} {cat_color}{cat:<18}{RESET} {reorder_mark}")
+
+        elif choice == "2":
+            cur.execute("""
+                SELECT replenishment_id, atm_id, requested_amount, current_cash_at_request,
+                       burn_rate_at_request, urgency_level, status, cit_company,
+                       van_vehicle_number, dispatched_at, completed_at
+                FROM cash_replenishments
+                ORDER BY created_at DESC LIMIT 10;
+            """)
+            orders = cur.fetchall()
+            print(f"\n{'Order':<7} {'ATM':<5} {'Van Plate':<16} {'Company':<24} {'Top-Up Cash':<14} {'Urgency':<18} {'Status'}")
+            print("-" * 100)
+            for o in orders:
+                st_color = YELLOW if o["status"] in ("DISPATCHED", "IN_TRANSIT") else (GREEN if o["status"] == "COMPLETED" else CYAN)
+                print(f"#{o['replenishment_id']:<6} #{o['atm_id']:<4} {o['van_vehicle_number']:<16} {o['cit_company']:<24} ₹{o['requested_amount']:<13,.2f} {o['urgency_level']:<18} {st_color}{o['status']}{RESET}")
+
+        elif choice == "3":
+            atm_id = input("\nEnter ATM ID to dispatch CIT Armored Van to (1-8) > ").strip()
+            if atm_id.isdigit():
+                try:
+                    from app import app
+                    client = app.test_client()
+                    res = client.post("/api/cash-replenishment/dispatch", json={"atm_id": int(atm_id)})
+                    data = res.get_json()
+                    if data.get("success"):
+                        print(f"\n{GREEN}{BOLD}🚚 SUCCESS:{RESET} {data['message']}")
+                    else:
+                        print(f"\n{YELLOW}⚠️ NOTICE:{RESET} {data.get('message')}")
+                except Exception as e:
+                    print(f"\n{RED}Error dispatching van: {e}{RESET}")
+
+        elif choice == "4":
+            atm_id = input("\nEnter ATM ID to simulate cash rush on (1-8, default 1) > ").strip() or "1"
+            if atm_id.isdigit():
+                try:
+                    from app import app
+                    client = app.test_client()
+                    res = client.post("/api/cash-replenishment/simulate-rush", json={"atm_id": int(atm_id), "scenario": "diwali_rush"})
+                    data = res.get_json()
+                    if data.get("success"):
+                        print(f"\n{YELLOW}{BOLD}⚡ RUSH SIMULATION COMPLETED:{RESET}")
+                        print(f"  • {data['message']}")
+                        print(f"  • Remaining Cash: ₹{data['cash_after']:,.2f} ({data['days_to_stockout']} days / {data['hours_to_stockout']}h left)")
+                    else:
+                        print(f"\n{YELLOW}⚠️ NOTICE:{RESET} {data.get('message')}")
+                except Exception as e:
+                    print(f"\n{RED}Simulation error: {e}{RESET}")
+
+        elif choice == "5":
+            atm_id = input("\nEnter ATM ID to complete refill for (1-8) > ").strip()
+            if atm_id.isdigit():
+                try:
+                    from app import app
+                    client = app.test_client()
+                    res = client.post("/api/cash-replenishment/complete", json={"atm_id": int(atm_id)})
+                    data = res.get_json()
+                    if data.get("success"):
+                        print(f"\n{GREEN}{BOLD}✅ REFILL COMPLETED:{RESET} {data['message']}")
+                    else:
+                        print(f"\n{YELLOW}⚠️ NOTICE:{RESET} {data.get('message')}")
+                except Exception as e:
+                    print(f"\n{RED}Error completing refill: {e}{RESET}")
+
+        elif choice == "0":
+            break
+
 def main():
     conn = get_db()
     banner()
@@ -655,9 +775,12 @@ def main():
             print("  [5] 📜 Mini-Statement")
             print("  [6] 🔑 Change PIN")
             print("  [T] 📍 Switch Physical ATM Terminal Location")
+            print("  [P] 🚚 Predictive Cash & Logistics Radar")
+            print("  [F] 🛡️ Real-Time Fraud & Geo-Velocity Radar")
+            print("  [A] 🏛️ Bank Administration Dashboard")
             print("  [0] ⏏️  Eject Card / Exit")
 
-            choice = input(f"\n{BOLD}Enter option (0-6, T) > {RESET}").strip()
+            choice = input(f"\n{BOLD}Enter option (0-6, T, P, F, A) > {RESET}").strip()
 
             if choice == "1":
                 check_balance(conn, card)
@@ -673,11 +796,17 @@ def main():
                 change_pin(conn, card)
             elif choice.upper() == "T":
                 switch_atm_terminal(conn)
+            elif choice.upper() == "P":
+                predictive_cash_cli(conn)
+            elif choice.upper() == "F":
+                fraud_radar_cli(conn)
+            elif choice.upper() == "A":
+                admin_dashboard(conn)
             elif choice == "0":
                 print(f"\n{GREEN}⏏️  Card ejected. Please take your card. Thank you!{RESET}\n")
                 break
             else:
-                print(f"{RED}Invalid option. Please choose between 0 and 6.{RESET}")
+                print(f"{RED}Invalid option. Please choose between 0-6, T, P, F, A.{RESET}")
 
 if __name__ == "__main__":
     main()

@@ -13,6 +13,7 @@
 -- ============================================================================
 
 -- Drop existing tables in reverse dependency order to avoid FK constraint errors
+DROP TABLE IF EXISTS cash_replenishments;
 DROP TABLE IF EXISTS fraud_alerts;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS cards;
@@ -113,6 +114,10 @@ CREATE TABLE atm_machines (
                                        CHECK (cash_capacity >= 0.00),
     current_cash_level  DECIMAL(15, 2) NOT NULL DEFAULT 50000.00
                                        CHECK (current_cash_level >= 0.00 AND current_cash_level <= cash_capacity),
+    min_threshold_level DECIMAL(15, 2) NOT NULL DEFAULT 15000.00
+                                       CHECK (min_threshold_level >= 0.00 AND min_threshold_level <= cash_capacity),
+    daily_burn_rate     DECIMAL(15, 2) NOT NULL DEFAULT 5000.00
+                                       CHECK (daily_burn_rate > 0.00),
     status              VARCHAR(15)    NOT NULL DEFAULT 'ONLINE'
                                        CHECK (status IN ('ONLINE', 'OFFLINE', 'MAINTENANCE', 'OUT_OF_CASH')),
     last_serviced_date  DATE
@@ -205,4 +210,36 @@ CREATE TABLE fraud_alerts (
         ON DELETE SET NULL
         ON UPDATE CASCADE
 );
+
+-- ----------------------------------------------------------------------------
+-- Table 7: CASH_REPLENISHMENTS
+-- Automated inventory replenishment orders & Cash-In-Transit (CIT) van dispatch ledger.
+-- Driven by predictive depletion velocity & Reorder Point (ROP) formulas.
+-- ----------------------------------------------------------------------------
+CREATE TABLE cash_replenishments (
+    replenishment_id         INTEGER PRIMARY KEY,
+    atm_id                   INTEGER        NOT NULL,
+    requested_amount         DECIMAL(15, 2) NOT NULL
+                                            CHECK (requested_amount > 0.00),
+    current_cash_at_request  DECIMAL(15, 2) NOT NULL
+                                            CHECK (current_cash_at_request >= 0.00),
+    burn_rate_at_request     DECIMAL(15, 2) NOT NULL
+                                            CHECK (burn_rate_at_request > 0.00),
+    estimated_days_left      DECIMAL(5, 2),
+    urgency_level            VARCHAR(20)    NOT NULL DEFAULT 'NORMAL'
+                                            CHECK (urgency_level IN ('LOW', 'NORMAL', 'HIGH', 'CRITICAL_STOCKOUT')),
+    status                   VARCHAR(20)    NOT NULL DEFAULT 'SCHEDULED'
+                                            CHECK (status IN ('SCHEDULED', 'DISPATCHED', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED')),
+    cit_company              VARCHAR(100)   NOT NULL DEFAULT 'SecureCorp India CIT',
+    van_vehicle_number       VARCHAR(20)    NOT NULL DEFAULT 'MH-01-CV-7890',
+    dispatched_at            TIMESTAMP,
+    completed_at             TIMESTAMP,
+    created_at               TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_replenish_atm
+        FOREIGN KEY (atm_id)
+        REFERENCES atm_machines(atm_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
 

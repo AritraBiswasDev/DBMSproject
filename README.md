@@ -41,18 +41,19 @@ DBMSproject/
 │   ├── REVIEW_1_CASE_STUDY_REPORT.md      # Comprehensive academic report for Review 1
 │   └── REVIEW_1_PRESENTATION_GUIDE.md     # Slide deck outline, speaker notes & viva defense Q&A
 ├── scripts/
-│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application with Fraud Radar
-│   └── test_runner.py                     # Automated Python test runner (verifies 7 SQL scripts & fraud engine)
+│   ├── interactive_cli.py                 # Interactive Terminal CLI ATM Application with Fraud & Cash Radars
+│   └── test_runner.py                     # Automated Python test runner (verifies 8 SQL scripts, fraud & cash engines)
 ├── sql/
-│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints & fraud_alerts
+│   ├── 01_ddl_create.sql                  # Schema definition with 6 integrity constraints, fraud_alerts & cash_replenishments
 │   ├── 02_ddl_alter_drop.sql              # Schema evolution (ALTER, RENAME, DROP operations)
-│   ├── 03_dml_insert.sql                  # Realistic Indian seed dataset with ATM GPS coordinates
+│   ├── 03_dml_insert.sql                  # Realistic Indian seed dataset with ATM GPS coordinates & cash thresholds
 │   ├── 04_dml_update_delete.sql           # Balance updates, card locks, safe delete & soft deletes
 │   ├── 05_single_row_functions.sql        # String (PCI-DSS masking), Math, Date, CASE, COALESCE
 │   ├── 06_operators_and_group_functions.sql# Operators, COUNT, SUM, AVG, GROUP BY & HAVING
-│   └── 07_fraud_detection_engine.sql      # Novel in-database Geo-Velocity & window function fraud engine
+│   ├── 07_fraud_detection_engine.sql      # Novel in-database Geo-Velocity & window function fraud engine
+│   └── 08_predictive_cash_replenishment.sql# Novel predictive cash depletion velocity & CIT logistics engine
 └── templates/
-    └── index.html                         # ATM Simulator, Bank Admin & Fraud Radar Web UI
+    └── index.html                         # ATM Simulator, Bank Admin, Fraud Radar & Cash Logistics Web UI
 ```
 
 ---
@@ -98,24 +99,71 @@ FROM transactions;
 
 ---
 
+## 🚚 Project Novelty 2: In-Database Predictive Cash Replenishment & CIT Logistics Engine
+
+Traditional ATM networks run out of cash during festivals, weekends, and payday rushes, or suffer excessive "Cost of Float" by overstocking idle currency. Rather than running replenishment as an external manual spreadsheet, this project embeds **Mathematical Inventory Control (Reorder Points & Safety Stock)** and **Temporal Moving Average Window Functions** directly into the relational schema.
+
+### 1. Mathematical Architecture: Reorder Point (ROP) & Safety Stock
+Every ATM terminal maintains dynamic liquidity constraints:
+* **Nariman Point Flagship (Mumbai):** Capacity ₹75,000 | Safety Stock ₹20,000 | Baseline Burn ₹12,000/day
+* **Connaught Place Hub (New Delhi):** Capacity ₹80,000 | Safety Stock ₹25,000 | Baseline Burn ₹15,000/day
+* **FC Road Terminal (Pune):** Capacity ₹40,000 | Current Cash ₹1,500 | Depletion < 5 hours (`OUT_OF_CASH`)
+
+The replenishment threshold is modeled using standard inventory theory:
+$$\text{Reorder Point (ROP)} = (\overline{d} \times L) + SS$$
+$$\text{Days to Stockout } (D_{\text{stockout}}) = \frac{\text{Current Physical Vault Cash}}{\overline{\text{Daily Burn Rate } (\overline{d})}}$$
+$$\text{Economic Replenishment Quantity (EOQ Top-Up)} = \text{Cash Capacity} - \text{Current Cash}$$
+
+* **Rule BR-11 (Stockout Urgency Classification):**
+  * `CRITICAL_STOCKOUT` / `OUT_OF_CASH`: Cash $\le \text{min\_threshold\_level}$ or $D_{\text{stockout}} \le 0.5\text{ days}$ ($< 12\text{ hours}$). Triggers emergency armored CIT van dispatch.
+  * `HIGH_URGENCY`: $0.5 < D_{\text{stockout}} \le 1.5\text{ days}$. Automated dispatch within 4 hours.
+  * `MODERATE`: $1.5 < D_{\text{stockout}} \le 3.0\text{ days}$. Scheduled next preventative route.
+  * `OPTIMAL`: $D_{\text{stockout}} > 3.0\text{ days}$. Liquidity stable.
+
+### 2. Multi-Period Moving Average SQL Window Functions
+Depletion velocity dynamically adapts to transaction volume using SQL analytical window partitioning:
+```sql
+SELECT
+    atm_id,
+    tx_date,
+    daily_cash_dispensed,
+    ROUND(
+        AVG(daily_cash_dispensed) OVER (
+            PARTITION BY atm_id
+            ORDER BY tx_date
+            ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+        ), 2
+    ) AS moving_avg_burn_3d
+FROM v_atm_daily_burn_history;
+```
+
+### 3. Closed-Loop Cash-in-Transit (CIT) Armored Van Logistics
+When an ATM terminal drops below its safety stock threshold, the database automatically logs a fulfillment order in `cash_replenishments`, records the vehicle registration plate (e.g. `MH-01-CV-7890`), assigns the licensed logistics provider (`SecureCorp India CIT`, `CMS Info Systems`, `SIS Prosegur`), and updates status to `DISPATCHED` or `IN_TRANSIT`. Completing the delivery atomically reloads the vault and restores terminal status to `ONLINE`.
+
+---
+
 ## 🎮 Interactive Simulation (Web GUI & Terminal CLI)
 
 ### Option A: Interactive Web ATM GUI (Recommended for Presentations)
-Launch the graphical browser-based ATM simulator, Bank Admin Portal, and Fraud Radar:
+Launch the graphical browser-based ATM simulator, Bank Admin Portal, Fraud Radar, and Cash Logistics Console:
 
 ```bash
 python app.py
 ```
 * **URL:** Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your web browser.
-* **Three Dedicated Views:**
-  1. 🏧 **ATM Terminal**: Realistic enclosure, sound effects, card insertion, PIN authentication, cash withdrawal, deposit, transfer, mini-statement, and thermal receipt generation.
-  2. 🏛️ **Bank Admin & Analytics**: Fleet monitor of all 8 Indian ATM terminals, cash replenishment, card unblocking, and aggregate financial metrics.
+* **Four Dedicated System Views:**
+  1. 🏧 **ATM Terminal**: Realistic enclosure, physical location terminal selector, sound effects, card reader, PIN authentication, cash withdrawal, deposit, transfer, mini-statement, and thermal receipt generation.
+  2. 🏛️ **Bank Admin & Analytics**: Fleet monitor of all 8 Indian ATM terminals, manual cash replenishment, card unblocking, and aggregate financial metrics.
   3. 🛡️ **Fraud & Geo-Velocity Radar**:
      * **Threat Counters**: Total Alerts, Critical Breaches, Auto-Locked Cards, and Maximum Velocity Detected.
-     * **Interactive Attack Simulation Sandbox**: 1-click execution of *Impossible Travel (Mumbai ➔ Delhi in 15 mins)*, *Rapid Frequency Burst (4 swipes in 2 mins)*, and *Outlier Spending Spike*.
+     * **Interactive Attack Simulation Sandbox**: 1-click execution of *Impossible Travel (Mumbai ➔ Delhi in 15 mins)*, *Rapid Frequency Burst*, and *Outlier Spending Spike*.
      * **Live Security Audit Table**: Real-time forensic ledger of `fraud_alerts`.
-     * **ATM Geolocation Mesh**: Terminal coordinates, live cash reserves, and city-level risk heat index.
-  4. ⚡ **Live SQL Query Inspector**: Fixed footer showing the exact SQL queries executed in real-time.
+  4. 🚚 **Predictive Cash & Logistics**:
+     * **Liquidity Saturation Metrics**: Total network vault cash, network utilization %, critical alarms, and active CIT vans in transit.
+     * **Interactive Festive Cash Drain Sandbox**: 1-click triggers for *Diwali Shopping Rush (-₹28,000)*, *Payday Cash Drain (-₹20,000)*, and *Weekend Entertainment Spike (-₹15,000)*.
+     * **Fleet Depletion Radar Grid**: 8 terminal cards with depletion countdown clocks (`⏳ 4.0 Days Left (96.4h)`), animated utilization bars, and "🚚 Dispatch CIT Armored Van" triggers.
+     * **Live CIT Armored Van Manifest**: Table tracking orders, armored vehicles, logistics partners, and 1-click delivery completion.
+  5. ⚡ **Live SQL Query Inspector**: Fixed footer showing the exact SQL queries executed in real-time.
 
 ---
 
@@ -125,7 +173,7 @@ Run the interactive ATM application directly in your terminal console:
 ```bash
 python scripts/interactive_cli.py
 ```
-* Interactive menus, sample card picker, PIN authentication, cash withdrawals with real-time fraud evaluation, and option `[F]` for the **Fraud & Geo-Velocity Radar**.
+* Interactive menus, sample card picker, PIN authentication, cash withdrawals with real-time fraud evaluation, option `[T]` to switch physical ATM cities, option `[F]` for the **Fraud & Geo-Velocity Radar**, and option `[P]` for the **Predictive Cash & Logistics Radar**.
 
 ---
 
@@ -138,7 +186,7 @@ python scripts/test_runner.py
 ```
 
 ### Expected Output Summary:
-* Executes all 7 SQL scripts in proper sequence (`01_ddl_create.sql` through `07_fraud_detection_engine.sql`).
+* Executes all 8 SQL scripts in proper sequence (`01_ddl_create.sql` through `08_predictive_cash_replenishment.sql`).
 * Runs **Integrity Constraint Tests** and proves that the database blocks:
   * ❌ Negative balances (`CHECK balance >= 0.00`)
   * ❌ Duplicate email addresses (`UNIQUE`)
@@ -149,8 +197,13 @@ python scripts/test_runner.py
 * Filters high-volume accounts using `HAVING`.
 * **Fraud & Geo-Velocity Test Suite:**
   * ✅ Verifies Great-Circle Haversine distance accuracy between Mumbai and Delhi ($1,167.81\text{ km}$).
-  * ✅ Verifies Impossible Travel velocity detection ($4,671.24\text{ km/h} > 500\text{ km/h}$).
+  * ✅ Verifies Impossible Travel velocity detection ($2,480.00\text{ km/h} > 500\text{ km/h}$).
   * ✅ Verifies automated soft-lockout of compromised cards.
+* **Predictive Cash & Logistics Test Suite:**
+  * ✅ Verifies Days-to-Stockout and Hours-to-Stockout calculation accuracy on `v_atm_stockout_forecast`.
+  * ✅ Verifies automated Reorder Point (ROP) threshold detection on critical low-cash terminals.
+  * ✅ Verifies active CIT armored security van dispatch orders in `cash_replenishments`.
+  * ✅ Verifies multi-period SQL analytical window moving average burn velocity (`v_atm_moving_burn_velocity`).
 
 ---
 
